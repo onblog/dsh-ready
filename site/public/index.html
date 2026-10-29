@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DSH 就位 · 一键装好 DeepSeek Harness 的桌面启动器</title>
+    <meta
+      name="description"
+      content="DSH 就位（DSH Ready）把 DeepSeek Harness 的安装、启动、停止、升级、卸载收进一个蓝色小窗口：双击打开，点一下就能用，不需要终端。支持 macOS Apple Silicon、macOS Intel 与 Windows。"
+    />
+    <meta
+      name="keywords"
+      content="DeepSeek Harness,DSH,DSH 就位,DSH Ready,一键安装,桌面客户端,macOS,Windows"
+    />
+    <meta name="author" content="Martin" />
+    <meta name="theme-color" content="#0b1f33" />
+    <meta name="robots" content="index, follow" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png" />
+    <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+    <link rel="canonical" href="__SITE_URL__/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="DSH 就位" />
+    <meta property="og:title" content="DSH 就位 · 一键装好 DeepSeek Harness" />
+    <meta
+      property="og:description"
+      content="装好、启动、升级 DeepSeek Harness，全程不用终端。一个小窗口管住七件事，macOS 与 Windows 都能用。"
+    />
+    <meta property="og:url" content="__SITE_URL__/" />
+    <meta property="og:image" content="__SITE_URL__/assets/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="DSH 就位 · 一键装好 DeepSeek Harness" />
+    <meta
+      name="twitter:description"
+      content="装好、启动、升级 DeepSeek Harness，全程不用终端。macOS 与 Windows 都能用。"
+    />
+    <meta name="twitter:image" content="__SITE_URL__/assets/og.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "DSH 就位",
+        "alternateName": "DSH Ready",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "macOS 12+, Windows 10+",
+        "description": "DeepSeek Harness 的桌面启动器：一键安装、启动、停止、升级、卸载，全程不需要终端。",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CNY" },
+        "softwareVersion": "1.0.3",
+        "url": "__SITE_URL__/",
+        "downloadUrl": "__SITE_URL__/#download",
+        "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+        "author": { "@type": "Person", "name": "Martin", "url": "https://github.com/onblog" }
+      }
+    </script>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+
+  <body>
+    <div class="bubbles" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+
+    <header class="topbar">
+      <a class="brand" href="/">
+        <img class="brand__icon" src="/assets/icon-192.png" alt="" width="32" height="32" />
+        <span class="brand__name" data-i18n="brand">DSH 就位</span>
+        <span class="brand__tag">Ready</span>
+      </a>
+
+      <nav class="topbar__nav">
+        <a class="topbar__link" href="#features" data-i18n="nav.features">功能</a>
+        <a class="topbar__link" href="#shots" data-i18n="nav.shots">截图</a>
+        <a class="topbar__link" href="/stats" data-i18n="nav.stats">数据</a>
+        <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Switch language">
+          <span id="lang-label">EN</span>
+        </button>
+        <a
+          class="topbar__link topbar__link--github"
+          href="https://github.com/onblog/dsh-ready"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <svg class="link-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 2C6.48 2 2 6.58 2 12.26c0 4.5 2.87 8.32 6.84 9.67.5.1.68-.22.68-.49 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.36 9.36 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.8 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.26C22 6.58 17.52 2 12 2Z"
+            />
+          </svg>
+          <span>GitHub</span>
+        </a>
+      </nav>
+    </header>
+
+    <main>
+      <!-- ------------------------------------------------------------ hero -->
+      <section class="hero">
+        <div class="hero__copy">
+          <p class="kicker">
+            <span class="kicker__dot"></span>
+            <span data-i18n="hero.kicker">开源 · 个人免费 · 不采集隐私</span>
+          </p>
+
+          <h1 class="hero__title">
+            <span data-i18n="brand">DSH 就位</span>
+            <em>DSH Ready</em>
+          </h1>
+
+          <p class="hero__tagline" data-i18n="hero.tagline">
+            零基础小白，也能一键跑起 DeepSeek Harness
+          </p>
+          <p class="hero__desc" data-i18n="hero.desc">
+            下载、双击、点一下：装好、启动、升级全自动完成。不用装 Node，不用记命令，不用管端口，第一次用也能直接跑起来。
+          </p>
+
+          <div class="hero__actions">
+            <a class="btn btn--primary btn--lg" href="#download" data-i18n="hero.cta">
+              选择你的系统
+            </a>
+            <a
+              class="btn btn--ghost btn--lg"
+              href="https://github.com/onblog/dsh-ready"
+              target="_blank"
+              rel="noreferrer"
+              data-i18n="hero.source"
+              >查看源码</a
+            >
+          </div>
+
+          <ul class="hero__chips">
+            <li>macOS 12+</li>
+            <li>Windows 10+</li>
+            <li data-i18n="hero.chip.free">AGPL-3.0 开源</li>
+          </ul>
+        </div>
+
+        <div class="hero__art" aria-hidden="true">
+          <div class="orb">
+            <div class="orb__glow"></div>
+            <video
+              class="orb__video"
+              id="hero-pet"
+              autoplay
+              loop
+              muted
+              playsinline
+              poster="/assets/whale-girl.png"
+            >
+              <source src="/assets/pet/idle.webm" type="video/webm" />
+            </video>
+            <span class="orb__ring orb__ring--1"></span>
+            <span class="orb__ring orb__ring--2"></span>
+          </div>
+          <div class="float-card float-card--state">
+            <span class="ping"></span>
+            <b data-i18n="hero.float.running">运行中</b>
+            <small>127.0.0.1</small>
+          </div>
+          <div class="float-card float-card--install">
+            <span class="tick">✓</span>
+            <b data-i18n="hero.float.installed">已装好</b>
+            <small data-i18n="hero.float.oneclick">一次点击</small>
+          </div>
+          <div class="float-card float-card--plugin">
+            <span class="spark">✦</span>
+            <b data-i18n="hero.float.plugins">插件兼容检查</b>
+            <small data-i18n="hero.float.before">升级前自动核对</small>
+          </div>
+        </div>
+      </section>
+
+      <!-- -------------------------------------------------------- download -->
+      <section class="downloads" id="download">
+        <div class="section-head">
+          <h2 data-i18n="download.title">下载 DSH 就位</h2>
+          <p data-i18n="download.sub">
+            选一个平台，下载完直接打开就能用。
+          </p>
+          <p class="downloads__version" id="version-line" hidden>
+            <span data-i18n="download.latest">最新版本</span>
+            <b id="version-value">—</b>
+            <span class="dot-sep">·</span>
+            <span id="released-value"></span>
+          </p>
+        </div>
+
+        <div class="cards" id="download-cards">
+          <article class="dl-card" data-arch="arm64">
+            <div class="dl-card__top">
+              <span class="dl-card__icon dl-card__icon--apple" data-platform="mac"><svg class="dl-card__logo" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.37 12.62c.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.71-3.19-1.74-1.36-.14-2.65.8-3.34.8-.69 0-1.75-.78-2.88-.76-1.48.02-2.85.86-3.61 2.19-1.54 2.67-.39 6.62 1.11 8.79.73 1.06 1.6 2.24 2.75 2.2 1.1-.05 1.52-.71 2.85-.71s1.71.71 2.88.69c1.19-.02 1.94-1.07 2.66-2.13.84-1.21 1.19-2.39 1.21-2.45-.03-.01-2.32-.89-2.34-3.57ZM14.2 6.03c.61-.74 1.02-1.77.91-2.79-.88.04-1.94.58-2.57 1.32-.56.65-1.05 1.7-.92 2.7.98.08 1.98-.5 2.58-1.23Z"/></svg></span>
+              <span class="dl-card__badge" data-recommend-for="mac-arm64" hidden
+                ><span data-i18n="download.recommended">推荐</span></span
+              >
+            </div>
+            <h3>macOS <span class="muted">Apple Silicon</span></h3>
+            <p class="dl-card__meta" data-i18n="download.macArmHint">M1 / M2 / M3 / M4 芯片</p>
+            <p class="dl-card__size" data-size-for="arm64">—</p>
+            <button class="btn btn--primary dl-btn" type="button" data-arch="arm64">
+              <span class="dl-btn__label" data-i18n="download.macArm">下载 Apple Silicon 版</span>
+            </button>
+            <p class="dl-card__hint" data-i18n="download.macHint">
+              首次打开若被系统拦截：系统设置 → 隐私与安全性 →「仍要打开」；macOS 14 及更早可右键图标选「打开」。
+            </p>
+            <div class="progress" hidden>
+              <div class="progress__bar"><i></i></div>
+              <div class="progress__meta">
+                <span class="progress__text">0%</span>
+                <button class="progress__cancel" type="button" data-i18n="download.cancel">
+                  取消
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <article class="dl-card" data-arch="x64">
+            <div class="dl-card__top">
+              <span class="dl-card__icon dl-card__icon--apple" data-platform="mac"><svg class="dl-card__logo" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.37 12.62c.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.71-3.19-1.74-1.36-.14-2.65.8-3.34.8-.69 0-1.75-.78-2.88-.76-1.48.02-2.85.86-3.61 2.19-1.54 2.67-.39 6.62 1.11 8.79.73 1.06 1.6 2.24 2.75 2.2 1.1-.05 1.52-.71 2.85-.71s1.71.71 2.88.69c1.19-.02 1.94-1.07 2.66-2.13.84-1.21 1.19-2.39 1.21-2.45-.03-.01-2.32-.89-2.34-3.57ZM14.2 6.03c.61-.74 1.02-1.77.91-2.79-.88.04-1.94.58-2.57 1.32-.56.65-1.05 1.7-.92 2.7.98.08 1.98-.5 2.58-1.23Z"/></svg></span>
+              <span class="dl-card__badge" data-recommend-for="mac-x64" hidden
+                ><span data-i18n="download.recommended">推荐</span></span
+              >
+            </div>
+            <h3>macOS <span class="muted">Intel</span></h3>
+            <p class="dl-card__meta" data-i18n="download.macIntelHint">Intel 芯片的 Mac</p>
+            <p class="dl-card__size" data-size-for="x64">—</p>
+            <button class="btn btn--secondary dl-btn" type="button" data-arch="x64">
+              <span class="dl-btn__label" data-i18n="download.macIntel">下载 Intel 版</span>
+            </button>
+            <p class="dl-card__hint" data-i18n="download.macHint">
+              首次打开若被系统拦截：系统设置 → 隐私与安全性 →「仍要打开」；macOS 14 及更早可右键图标选「打开」。
+            </p>
+            <div class="progress" hidden>
+              <div class="progress__bar"><i></i></div>
+              <div class="progress__meta">
+                <span class="progress__text">0%</span>
+                <button class="progress__cancel" type="button" data-i18n="download.cancel">
+                  取消
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <article class="dl-card" data-arch="win-x64">
+            <div class="dl-card__top">
+              <span class="dl-card__icon dl-card__icon--win" data-platform="win"><svg class="dl-card__logo" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5.6l7.6-1.05v7.35H3V5.6Zm8.6-1.18L21 3v8.9h-9.4V4.42ZM3 12.9h7.6v7.36L3 19.2v-6.3Zm8.6 0H21V21l-9.4-1.3v-6.8Z"/></svg></span>
+              <span class="dl-card__badge" data-recommend-for="win" hidden
+                ><span data-i18n="download.recommended">推荐</span></span
+              >
+            </div>
+            <h3>Windows <span class="muted">x64</span></h3>
+            <p class="dl-card__meta" data-i18n="download.winHint">Windows 10 / 11</p>
+            <p class="dl-card__size" data-size-for="win-x64">—</p>
+            <button class="btn btn--secondary dl-btn" type="button" data-arch="win-x64">
+              <span class="dl-btn__label" data-i18n="download.win">下载 Windows 版</span>
+            </button>
+            <p class="dl-card__hint" data-i18n="download.winOpenHint">
+              安装包未签名，SmartScreen 提示时点「更多信息」→「仍要运行」。
+            </p>
+            <div class="progress" hidden>
+              <div class="progress__bar"><i></i></div>
+              <div class="progress__meta">
+                <span class="progress__text">0%</span>
+                <button class="progress__cancel" type="button" data-i18n="download.cancel">
+                  取消
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <p class="downloads__status" id="download-status" role="status" aria-live="polite"></p>
+        <p class="downloads__fallback" hidden id="download-fallback">
+          <a id="download-direct" href="#" data-i18n="download.direct">改用直链下载</a>
+        </p>
+      </section>
+
+      <!-- -------------------------------------------------------- features -->
+      <section class="features" id="features">
+        <div class="section-head">
+          <h2 data-i18n="features.title">只做七件事，件件做到底</h2>
+          <p data-i18n="features.sub">安装、启动、停止、状态、日志、升级、卸载。</p>
+        </div>
+
+        <div class="feature-grid">
+          <article class="feature">
+            <span class="feature__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v9m0 0 3.5-3.5M12 13 8.5 9.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></span>
+            <h3 data-i18n="features.install.title">一次点击装好</h3>
+            <p data-i18n="features.install.desc">
+              没有 Node 也能装：自动用 nvm 装到 ~/.nvm 并写入 shell 配置，再用 npm 默认全局前缀安装 DSH，不需要 sudo。
+            </p>
+          </article>
+          <article class="feature">
+            <span class="feature__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7l4-2 4 2 4-2 4 2M4 13l4-2 4 2 4-2 4 2M4 19l4-2 4 2 4-2 4 2"/></svg></span>
+            <h3 data-i18n="features.env.title">和你终端里一模一样</h3>
+            <p data-i18n="features.env.desc">
+              启动前读取登录 shell 环境，API Key、代理、PATH 都会带进去，不会出现「终端能跑、双击打不开」。
+            </p>
+          </article>
+          <article class="feature">
+            <span class="feature__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg></span>
+            <h3 data-i18n="features.external.title">不和你抢端口</h3>
+            <p data-i18n="features.external.desc">
+              检测同一端口上的外部实例，可以一键接管重启；其它端口的 DSH 不会被碰。
+            </p>
+          </article>
+          <article class="feature">
+            <span class="feature__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h4v2.5a1.5 1.5 0 0 0 3 0V4h4v5h-2.5a1.5 1.5 0 0 0 0 3H20v5H4v-5h2.5a1.5 1.5 0 0 0 0-3H4V4h5"/></svg></span>
+            <h3 data-i18n="features.upgrade.title">升级前先核对插件</h3>
+            <p data-i18n="features.upgrade.desc">
+              逐个检查第三方插件声明的 DSH 兼容范围，有阻塞项只提示、不动现有环境；通过后才列出命令并执行。
+            </p>
+          </article>
+          <article class="feature">
+            <span class="feature__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h11a2 2 0 0 1 2 2v12a2 2 0 0 0 2 2H8a2 2 0 0 1-2-2V4Z"/><path d="M9 8h7M9 12h7M9 16h4"/></svg></span>
+            <h3 data-i18n="features.log.title">日志看得懂</h3>
+            <p data-i18n="features.log.desc">
+              启动、就绪、崩溃、升级结果都写进日志面板并落盘，失败时能自己看出卡在哪一步。
+            </p>
+          </article>
+          <article class="feature">
+            <span class="feature__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20h14M8 20v-4l2-6h4l2 6v4M10 10V6a2 2 0 1 1 4 0v4"/></svg></span>
+            <h3 data-i18n="features.uninstall.title">卸载不误伤数据</h3>
+            <p data-i18n="features.uninstall.desc">
+              停实例 → 卸插件 → 清配置 → 卸本体，但保留 ~/.dsh 里的会话与凭据，重装后还能接上。
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ----------------------------------------------------------- shots -->
+      <section class="shots" id="shots">
+        <div class="section-head">
+          <h2 data-i18n="shots.title">真的长这样</h2>
+          <p data-i18n="shots.sub">界面截图来自沙箱里真实运行的 DSH 就位，没有后期拼贴。</p>
+        </div>
+
+        <div class="shot-row">
+          <figure class="shot">
+            <img src="/assets/app-light-zh.png" data-src-zh="/assets/app-light-zh.png" data-src-en="/assets/app-light-en.png" alt="DSH 就位浅色主题" loading="lazy" width="468" height="520" />
+            <figcaption data-i18n="shots.light">浅色主题 · 运行中</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="/assets/app-dark-zh.png" data-src-zh="/assets/app-dark-zh.png" data-src-en="/assets/app-dark-en.png" alt="DSH 就位深色主题" loading="lazy" width="468" height="520" />
+            <figcaption data-i18n="shots.dark">深色主题 · 已停止</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------------ data -->
+      <section class="stats-strip">
+        <div class="section-head">
+          <h2 data-i18n="statsStrip.title">有多少人在一起用</h2>
+          <p data-i18n="statsStrip.sub">
+            只统计桌面应用上报的匿名启动信号，不含 IP、不含设备指纹；数据看板是公开的。
+          </p>
+        </div>
+        <div class="stat-cards">
+          <div class="stat-card">
+            <b id="stat-total">—</b>
+            <span data-i18n="statsStrip.total">总用户量</span>
+          </div>
+          <div class="stat-card">
+            <b id="stat-today">—</b>
+            <span data-i18n="statsStrip.today">今日活跃</span>
+          </div>
+          <div class="stat-card">
+            <b id="stat-week">—</b>
+            <span data-i18n="statsStrip.week">近 7 日活跃</span>
+          </div>
+        </div>
+        <a class="btn btn--ghost" href="/stats" data-i18n="statsStrip.more">打开完整数据看板 →</a>
+      </section>
+
+      <!-- -------------------------------------------------------------- faq -->
+      <section class="faq">
+        <div class="section-head">
+          <h2 data-i18n="faq.title">常见问题</h2>
+        </div>
+        <div class="faq-list">
+          <details class="faq-item">
+            <summary data-i18n="faq.free.q">要钱吗？</summary>
+            <p data-i18n="faq.free.a">
+              DSH 就位本身免费开源（AGPL-3.0-only）。个人使用、学习、二次开发都不要钱；如果你要在闭源商业产品里使用，需要一份商业授权。
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary data-i18n="faq.official.q">它是 DeepSeek 官方项目吗？</summary>
+            <p data-i18n="faq.official.a">
+              不是。它是社区做的第三方桌面壳，只负责安装、启动、升级官方 DSH，不修改 DSH 本体，也不替代它的 Web 界面。
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary data-i18n="faq.privacy.q">会收集我的数据吗？</summary>
+            <p data-i18n="faq.privacy.a">
+              官网只记录匿名设备数与下载次数，用来告诉你「有多少人在用」。不写 IP、不写设备指纹、不设 Cookie，也没有任何第三方统计脚本。桌面应用本身不上报任何数据。
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary data-i18n="faq.unsigned.q">为什么打开时被系统拦住了？</summary>
+            <p data-i18n="faq.unsigned.a">
+              目前安装包没有购买苹果与微软的开发者签名。macOS 上右键图标选「打开」，Windows 上点「更多信息 → 仍要运行」即可，之后不会再拦。
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary data-i18n="faq.existing.q">我已经在终端里装过 DSH 了，还用吗？</summary>
+            <p data-i18n="faq.existing.a">
+              可以直接用：DSH 就位会优先复用系统里已装的 DSH，只负责帮你启停、看日志、升级，不会重复安装。
+            </p>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer__brand">
+        <img src="/assets/icon-192.png" alt="" width="40" height="40" />
+        <div>
+          <b>DSH 就位 · DSH Ready</b>
+          <small data-i18n="footer.tagline">一个蓝色的小窗口，管住 DeepSeek Harness 的七件事。</small>
+        </div>
+      </div>
+      <div class="footer__links">
+        <a href="https://github.com/onblog/dsh-ready" target="_blank" rel="noreferrer">GitHub</a>
+        <a href="https://github.com/onblog/dsh-ready/blob/main/README.md" target="_blank" rel="noreferrer"
+          ><span data-i18n="footer.docs">文档</span></a
+        >
+        <a href="/stats" data-i18n="footer.stats">使用数据</a>
+        <a href="https://github.com/onblog/dsh-ready/issues" target="_blank" rel="noreferrer"
+          ><span data-i18n="footer.issues">反馈</span></a
+        >
+      </div>
+      <p class="footer__legal" data-i18n="footer.legal">
+        第三方项目，与 DeepSeek 官方无关。代码以 AGPL-3.0-only 授权，商业用途需另行授权。
+      </p>
+    </footer>
+
+    <div class="gk" id="gk" hidden>
+      <div class="gk-card" role="dialog" aria-modal="true" aria-labelledby="gkTitle">
+        <button class="gk-close" id="gkClose" type="button" aria-label="关闭">×</button>
+        <h2 id="gkTitle" data-i18n="gk.title">首次打开需要允许一次</h2>
+        <p class="gk-intro" data-i18n="gk.intro">
+          安装包已下载完成。它不是从 App Store 安装的，macOS 第一次会拦下它——这是正常现象，放行一次即可。
+        </p>
+        <ol class="gk-steps">
+          <li data-i18n="gk.step1">双击打开 App，看到「未打开 “DSH 就位.app”」的提示时，点「完成」。</li>
+          <li data-i18n="gk.step2">打开「系统设置 → 隐私与安全性」，在「安全性」区域找到被阻止的 App，点「仍要打开」。</li>
+          <li data-i18n="gk.step3">输入 Mac 密码或使用触控 ID，之后就能正常双击打开。</li>
+        </ol>
+        <p class="gk-note" data-i18n="gk.note">如果系统提示「已损坏」，在「终端」里执行一次下面的命令：</p>
+        <div class="gk-cmd">
+          <code id="gkCmd">sudo xattr -cr "/Applications/DSH 就位.app"</code>
+          <button id="gkCopy" type="button" data-i18n="gk.copy">复制</button>
+        </div>
+        <button class="btn btn--primary gk-ok" id="gkOk" type="button" data-i18n="gk.ok">我知道了</button>
+      </div>
+    </div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

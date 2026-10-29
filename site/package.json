@@ -1,0 +1,20 @@
+{
+  "name": "dsh-ready-site",
+  "version": "1.0.0",
+  "description": "Official site for DSH Ready. DSH 就位官网。",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "node scripts/render-seo.mjs && wrangler deploy",
+    "check": "node --check src/index.js && node --check public/app.js && node --check public/stats.js",
+    "seo": "node scripts/render-seo.mjs",
+    "release": "node scripts/publish-release.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.144.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dsh-ready",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-29",
+
+  // Workers Logs + traces: every request/error is visible in
+  // Dashboard → Workers → dsh-ready → Observability.
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true
+    }
+  },
+
+  // Static-first: anything that exists in public/ is served by the asset layer
+  // and never bills a Worker request. Only /api/* reaches src/index.js.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Uses the existing `common` D1 database. Every table and index this project
+  // creates carries the `ready_` prefix: ready_launches + idx_ready_*.
+  // `d1_migrations` records migrations by FILE NAME, so each file must be
+  // `NNNN_ready_*.sql`.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "common",
+      "database_id": "ba170df9-05e6-427e-a081-099306e7fc77",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Installers live in the `common` R2 bucket under the `dsh-ready/` prefix.
+  "r2_buckets": [
+    {
+      "binding": "R2_RELEASES",
+      "bucket_name": "common"
+    }
+  ],
+
+  // `common` KV namespace, used to cache the release manifest so a busy download
+  // page does not read R2 on every request.
+  "kv_namespaces": [{ "binding": "KV", "id": "a81355effe1948efba1e9cf97ae3d04a" }],
+
+  // No workers.dev hostname: the site is only reachable through its custom
+  // domain. The domain itself is deployment configuration and is deliberately
+  // kept out of the repository (see docs/zh/deploy.md).
+  "workers_dev": false,
+  "preview_urls": false,
+
+  // Custom domain. A Worker custom domain is deployment configuration, so it
+  // is always declared here (and in docs/zh/deploy.md) rather than typed into
+  // the dashboard: `wrangler deploy` then keeps DNS + certificate in sync.
+  "routes": [{ "pattern": "dsh.wordtk.com", "custom_domain": true }]
+}

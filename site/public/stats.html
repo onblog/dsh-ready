@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>使用数据 · DSH 就位</title>
+    <meta
+      name="description"
+      content="DSH 就位的匿名使用数据：总用户量、今日活跃、全球分布与城市明细。只接收桌面应用上报的匿名启动信号，不含 IP 与设备指纹。"
+    />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#0b1f33" />
+    <link rel="canonical" href="__SITE_URL__/stats" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png" />
+    <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/">
+        <img class="brand__icon" src="/assets/icon-192.png" alt="" width="32" height="32" />
+        <span class="brand__name" data-i18n="brand">DSH 就位</span>
+        <span class="brand__tag">Ready</span>
+      </a>
+
+      <nav class="topbar__nav">
+        <a class="topbar__link" href="/" data-i18n="nav.home">首页</a>
+        <a class="topbar__link" href="/#download" data-i18n="nav.download">下载</a>
+        <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Switch language">
+          <span id="lang-label">EN</span>
+        </button>
+      </nav>
+    </header>
+
+    <main class="stats-page">
+      <h1 class="stats-title" data-i18n="stats.title">使用数据</h1>
+      <p class="stats-sub" data-i18n="stats.sub">
+        只统计匿名启动信号，不收集个人信息，不含 IP 与设备指纹。
+      </p>
+
+      <div class="stat-cards">
+        <div class="stat-card">
+          <b id="stat-total">—</b>
+          <span data-i18n="stats.total">总用户量</span>
+        </div>
+        <div class="stat-card">
+          <b id="stat-today">—</b>
+          <span data-i18n="stats.today">今日活跃</span>
+        </div>
+        <div class="stat-card">
+          <b id="stat-week">—</b>
+          <span data-i18n="stats.week">近 7 日活跃</span>
+        </div>
+      </div>
+
+      <section class="stats-block">
+        <div class="block-head">
+          <h2 data-i18n="stats.map">全球分布</h2>
+          <div class="map-legend" id="map-legend"></div>
+        </div>
+
+        <div class="map-wrap">
+          <svg id="world-map" viewBox="0 0 960 500" role="img" aria-label="全球设备分布"></svg>
+          <div class="map-tooltip" id="map-tooltip"></div>
+        </div>
+      </section>
+
+      <section class="stats-block">
+        <h2 data-i18n="stats.cities">城市分布</h2>
+        <ul class="city-list" id="city-list">
+          <li class="stats-empty" data-i18n="stats.empty">还没有数据</li>
+        </ul>
+      </section>
+
+      <section class="stats-block">
+        <h2 data-i18n="stats.daily">每日活跃</h2>
+        <div class="daily-chart" id="daily-chart"></div>
+      </section>
+
+      <p class="stats-foot" data-i18n="stats.foot">
+        设备 ID 是应用本地生成的随机字符串，卸载应用即消失；官网页面本身不做任何统计。
+      </p>
+    </main>
+
+    <footer class="footer">
+      <div class="footer__links">
+        <a href="/" data-i18n="nav.home">首页</a>
+        <a href="https://github.com/onblog/dsh-ready" target="_blank" rel="noreferrer">GitHub</a>
+      </div>
+      <p class="footer__legal" data-i18n="footer.legal">
+        第三方项目，与 DeepSeek 官方无关。代码以 AGPL-3.0-only 授权，商业用途需另行授权。
+      </p>
+    </footer>
+
+    <script src="/stats.js" type="module"></script>
+  </body>
+</html>

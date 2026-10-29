@@ -1,0 +1,31 @@
+{
+  "name": "dsh-ready",
+  "productName": "DSH 就位",
+  "version": "1.0.3",
+  "private": true,
+  "description": "DeepSeek Harness 的桌面启动器：一键安装、启动、停止、日志、升级、卸载。A tiny desktop launcher for DeepSeek Harness.",
+  "type": "module",
+  "main": "electron/main.mjs",
+  "repository": "https://github.com/onblog/dsh-ready",
+  "homepage": "https://github.com/onblog/dsh-ready",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --config electron-builder.config.mjs",
+    "dist:mac": "electron-builder --mac dmg --config electron-builder.config.mjs",
+    "dist:mac:arm64": "electron-builder --mac dmg --arm64 --config electron-builder.config.mjs",
+    "dist:mac:x64": "electron-builder --mac dmg --x64 --config electron-builder.config.mjs",
+    "dist:win": "electron-builder --win nsis --x64 --config electron-builder.config.mjs",
+    "dist:linux": "electron-builder --linux AppImage --x64 --config electron-builder.config.mjs",
+    "sandbox": "bash scripts/sandbox-test.sh",
+    "shots": "node scripts/capture-screenshots.mjs"
+  },
+  "author": "Martin",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0"
+  }
+}
