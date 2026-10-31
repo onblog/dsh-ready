@@ -131,6 +131,24 @@ upgrade in that order.
 `{ theme }` and persists it. Only `light` / `dark` are accepted; any other value
 (including a legacy `system`) falls back to `dark`.
 
+### `app:info`, `app:auto-launch`
+
+`app:info` → `{ version, site, github, developer, autoLaunch }`, where `autoLaunch` is
+`{ supported, enabled }` and `supported` is true only in the installed macOS / Windows build.
+`app:auto-launch` takes `{ enabled }`, calls `app.setLoginItemSettings({ openAtLogin })` and
+reads the real state back → `{ ok, supported, enabled }`. Unsupported platforms return
+`ok: false` with a message, and the result is written to the app log.
+
+### `settings:get`, `settings:set`
+
+`settings:get` → `{ port, openInBrowser, telemetry, autoUpdateCheck, npmRegistry, proxy, dshArgs }`.
+`settings:set` takes any subset of those fields → `{ ok, settings, dropped }`, where `dropped` lists
+the launch-argument tokens the whitelist refused. Values are normalised before writing: `proxy` via
+`normalizeProxy` (illegal input becomes empty), `dshArgs` via `parseDshArgs` (drops `--port` and
+other non-whitelisted tokens), booleans only accept `true` / `false`. A changed `npmRegistry` clears
+the registry cache and re-reads the latest version. Port, theme and language keep their own
+`port:set` / `theme:set` / `lang:set` channels.
+
 ### Event `dsh:event`
 
 `{ type: 'log' | 'state', line?, state? }` — a log line or a full state snapshot.
@@ -169,6 +187,48 @@ Two `<video>` layers cross-fade so state changes never flash black; the static i
 stays visible until the first frame is decoded. Under
 `prefers-reduced-motion: reduce` only the static image is shown and no video is
 loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
+
+## Settings sheet and updates
+
+- The header holds four icon-only buttons, always in this order: language, theme, settings,
+  quit. No text labels, so the bar stays one row at 468px; the meaning lives in `title` and
+  `aria-label` (e.g. "Switch theme · Light"). The theme icon shows the theme it switches to, and
+  the language icon is always the "文A" glyph pair — never `EN` / `中文` text, never a globe.
+- Language and theme icons toggle on click and share one state with the settings sheet, where
+  segmented controls target a value directly.
+- "Settings" is an in-app panel reworked from the old About dialog: app icon, name, version,
+  then a single developer line (👤 Martin · ✉ email · GitHub · website, 10.5px, clickable,
+  never wrapped), three groups of settings, and a "Buy me a coffee" button at the bottom.
+  Licence and commercial-licensing copy are no longer shown.
+- Settings groups (fixed order):
+  - **General**: launch at login, DSH port, open the browser after start, theme, language.
+  - **Network**: npm registry (auto / official / mirror), HTTP(S) proxy, extra DSH arguments.
+  - **Privacy & updates**: anonymous launch report, daily update check, manual check button.
+- The port has exactly one entry point: the "DSH port" row in the sheet. The main window shows it
+  read-only (a `span`, no longer a button); the field is locked with a note while DSH is running or
+  an external instance is detected.
+- Launch at login: a custom `role="switch"` button backed by `app.setLoginItemSettings`.
+  Installed macOS / Windows builds only; Linux and development mode disable it with a note.
+- Open the browser after start: off by default. When off, `--no-open` is appended to the launch
+  command; when on, DSH opens the browser itself.
+- npm registry: `auto` keeps the original two-registry speed test; `official` / `mirror` pin one and
+  skip the test. Switching clears the registry cache and re-reads the latest version.
+- HTTP(S) proxy: written only into the npm / DSH child environment (`HTTP_PROXY`, `HTTPS_PROXY`,
+  `ALL_PROXY`, `NO_PROXY`); the app's own version and update requests stay direct (stated in the UI).
+  An unparsable value is rejected and highlighted.
+- Extra DSH arguments: split on whitespace, every token checked against a flag/value whitelist and
+  never passed to a shell; `--port` / `-p` are dropped because the port setting owns that, and the
+  dropped tokens are shown inline.
+- Launch reporting and the daily update check have separate switches: the first covers `/api/ping`,
+  the second the once-a-day `/api/release`; the manual check always works. The
+  `DSH_READY_NO_TELEMETRY=1` environment variable remains the hard kill switch.
+- Every control is custom-drawn (button + `aria-checked`, styled text fields); native `select`,
+  `checkbox` and browser dialogs are never used.
+- All external links go through the main process (`app:open-external`) with an allowlist of the
+  site, the repository, the developer profile and the developer email.
+- A newer version opens an in-app confirm dialog, then the system browser on the download page.
+- The sheet is 400px wide with `max-height: calc(100vh - 44px)` and scrolls internally, so the
+  window keeps its size.
 
 ## Platforms and builds
 

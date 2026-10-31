@@ -21,8 +21,13 @@ const PING_URL = `${SITE_URL}/api/ping`
 const DAY_MS = 24 * 60 * 60 * 1000
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-function telemetryDisabled() {
+/** The environment variable is the hard kill switch; the settings switch only covers launch reporting. */
+function envTelemetryDisabled() {
   return process.env.DSH_READY_NO_TELEMETRY === '1'
+}
+
+function launchReportDisabled() {
+  return envTelemetryDisabled() || readSettings().telemetry === false
 }
 
 /** One random ID per machine; it does not change with hardware, account or network. */
@@ -36,7 +41,7 @@ function deviceId() {
 
 /** Report once per launch (one device may produce several rows a day; UV counts distinct devices). */
 export async function reportLaunch() {
-  if (telemetryDisabled()) return
+  if (launchReportDisabled()) return
   try {
     await fetch(PING_URL, {
       method: 'POST',
@@ -54,7 +59,10 @@ export async function reportLaunch() {
  * Without force it is limited to once a day; force backs the manual check in the "About" panel.
  */
 export async function checkUpdate({ force = false } = {}) {
-  if (telemetryDisabled()) return { ok: false, disabled: true }
+  // A manual check is always allowed (unless the env kill switch is set); the daily
+  // automatic one follows the "check automatically" switch.
+  if (envTelemetryDisabled()) return { ok: false, disabled: true }
+  if (!force && readSettings().autoUpdateCheck === false) return { ok: false, disabled: true }
 
   const last = Number(readSettings().lastUpdateCheck) || 0
   if (!force && Date.now() - last < DAY_MS) return { ok: false, skipped: true }

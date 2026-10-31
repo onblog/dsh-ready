@@ -52,9 +52,9 @@ It starts the official web UI in your system browser.
 
 | Platform | Installer | Notes |
 | --- | --- | --- |
-| macOS Apple Silicon | `dsh-ready-1.0.9-arm64.dmg` | M1 / M2 / M3 / M4 |
-| macOS Intel | `dsh-ready-1.0.9-x64.dmg` | Intel-based Macs |
-| Windows x64 | `dsh-ready-1.0.9-x64.exe` | Windows 10 / 11 |
+| macOS Apple Silicon | `dsh-ready-1.0.10-arm64.dmg` | M1 / M2 / M3 / M4 |
+| macOS Intel | `dsh-ready-1.0.10-x64.dmg` | Intel-based Macs |
+| Windows x64 | `dsh-ready-1.0.10-x64.exe` | Windows 10 / 11 |
 
 Grab them from **[dsh.wordtk.com](https://dsh.wordtk.com)** — the installers live on R2
 and the site always serves the newest version.
@@ -90,11 +90,14 @@ All screenshots are captured from the real app running inside a sandbox, by
 - **Upgrade plan before upgrade.** Plugin `peerDependencies` on `@deepseek-ai/dsh*`
   and `engines.dsh` are checked against the target version. A blocker is reported
   and nothing is touched; only a passing plan turns into executable commands.
-- **Ports stay yours.** The default is 3080 and it is editable in the UI; a busy
-  port is reported instead of silently shifted, so the address you see is real.
-- **About and updates.** The About panel shows the developer contact and checks the
-  published version; the app also asks the site once a day and offers a jump to the
-  download page when something newer exists.
+- **Ports stay yours.** The default is 3080, edited in the settings sheet (read-only in the
+  main window); a busy port is reported instead of silently shifted, so the address you see is real.
+- **Settings in one place.** The header is four icons — language (文A), theme, settings, quit.
+  The settings sheet is grouped: general (launch at login, DSH port, open the browser after
+  start, theme, language), network (npm registry auto/official/mirror, HTTP(S) proxy, extra DSH
+  arguments) and privacy & updates (anonymous launch report, daily check, manual check). The port
+  is edited only there — the main window shows it read-only — and extra arguments go through an
+  argv whitelist, never a shell, with `--port` always dropped. Sponsor entry at the bottom.
 - **Your Node, your environment.** DSH Ready uses the Node and npm from your login
   shell. When Node is missing (or older than 22.18, or has no npm), it benchmarks the official and the China mirror, installs nvm
   into `~/.nvm`, installs Node 22 as the default, and appends the nvm init block to

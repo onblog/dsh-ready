@@ -274,11 +274,11 @@ async function main() {
       console.log(`  ${file} (${shown})`);
     }
 
-    // The About panel is part of the product now; capture it as evidence.
-    await cdp.evaluate('openAbout()');
-    await sleep(600);
-    await capture(cdp, 'app-about.png');
-    console.log('  app-about.png (About panel)');
+    // The settings sheet is part of the product now; capture it as evidence.
+    await cdp.evaluate('openSettings()');
+    await sleep(700);
+    await capture(cdp, 'app-settings.png');
+    console.log('  app-settings.png (settings sheet)');
   } finally {
     cdp?.ws.close();
     child.kill('SIGTERM');

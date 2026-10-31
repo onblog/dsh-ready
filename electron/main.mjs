@@ -1,6 +1,14 @@
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'node:path'
-import { readSettings, writeSettings, ensureDirs, isValidPort } from './paths.mjs'
+import {
+  readSettings,
+  writeSettings,
+  ensureDirs,
+  isValidPort,
+  normalizeProxy,
+  parseDshArgs,
+  NPM_REGISTRIES,
+} from './paths.mjs'
 import { push, getLines, clearLines, onLine } from './logger.mjs'
 import {
 
@@ -9,6 +17,7 @@ import {
   latestVersion,
   listVersions,
   pickRegistry,
+  resetRegistryCache,
   findSystemDsh,
   resolveDsh,
   primeGlobalPrefix,
@@ -31,6 +40,24 @@ function resolveLang() {
   if (LANGS.includes(stored)) return stored
   return String(app.getLocale()).toLowerCase().startsWith('zh') ? 'zh' : 'en'
 }
+/**
+ * Launch at login is delegated to the OS login item. It only makes sense for the
+ * packaged app: in development the login item would point at the Electron binary.
+ * Linux has no Electron-native equivalent here, so the switch stays disabled.
+ */
+function autoLaunchSupported() {
+  return app.isPackaged && (process.platform === 'darwin' || process.platform === 'win32')
+}
+
+function readAutoLaunch() {
+  if (!autoLaunchSupported()) return { supported: false, enabled: false }
+  try {
+    return { supported: true, enabled: Boolean(app.getLoginItemSettings().openAtLogin) }
+  } catch {
+    return { supported: true, enabled: false }
+  }
+}
+
 let mainWindow = null
 let registry = null
 let latestCache = { value: null, at: 0 }
@@ -349,12 +376,84 @@ ipcMain.handle('dsh:open', async () => {
   return { ok: true }
 })
 
+/** The settings snapshot the settings sheet renders; app:info covers version and auto launch. */
+function publicSettings() {
+  const settings = readSettings()
+  return {
+    port: settings.port,
+    openInBrowser: settings.openInBrowser,
+    telemetry: settings.telemetry,
+    autoUpdateCheck: settings.autoUpdateCheck,
+    npmRegistry: settings.npmRegistry,
+    proxy: settings.proxy,
+    dshArgs: settings.dshArgs,
+  }
+}
+
+ipcMain.handle('settings:get', () => publicSettings())
+
+ipcMain.handle('settings:set', async (_event, patch) => {
+  const next = {}
+  const dropped = []
+  if (patch && typeof patch === 'object') {
+    if (typeof patch.openInBrowser === 'boolean') next.openInBrowser = patch.openInBrowser
+    if (typeof patch.telemetry === 'boolean') next.telemetry = patch.telemetry
+    if (typeof patch.autoUpdateCheck === 'boolean') next.autoUpdateCheck = patch.autoUpdateCheck
+    if (NPM_REGISTRIES.includes(patch.npmRegistry)) next.npmRegistry = patch.npmRegistry
+    if (typeof patch.proxy === 'string') next.proxy = normalizeProxy(patch.proxy)
+    if (typeof patch.dshArgs === 'string') {
+      next.dshArgs = patch.dshArgs.trim()
+      dropped.push(...parseDshArgs(patch.dshArgs).dropped)
+    }
+  }
+
+  const before = readSettings()
+  writeSettings(next)
+  const after = readSettings()
+
+  if (after.npmRegistry !== before.npmRegistry) {
+    // The registry is cached process-wide: drop it and re-read the latest version.
+    resetRegistryCache()
+    latestCache = { value: null, at: 0 }
+    push(`npm 源：${after.npmRegistry === 'auto' ? '自动测速' : after.npmRegistry === 'official' ? '官方源' : '国内镜像'}`)
+    void refreshLatest(true)
+      .then((value) => (value ? emitState() : null))
+      .catch(() => null)
+  }
+  if (after.proxy !== before.proxy) {
+    push(after.proxy ? `代理已设置：${after.proxy}（仅 npm 与 DSH 子进程）` : '代理已清除')
+  }
+  if (after.dshArgs !== before.dshArgs) {
+    push(after.dshArgs ? `DSH 附加参数：${after.dshArgs}` : 'DSH 附加参数已清空')
+  }
+  if (dropped.length) push(`已忽略不可用的参数：${[...new Set(dropped)].join(' ')}`)
+
+  await emitState()
+  return { ok: true, settings: publicSettings(), dropped: [...new Set(dropped)] }
+})
+
 ipcMain.handle('app:info', () => ({
   version: app.getVersion(),
   site: SITE_URL,
   github: GITHUB_URL,
   developer: DEVELOPER,
+  autoLaunch: readAutoLaunch(),
 }))
+
+ipcMain.handle('app:auto-launch', async (_event, enabled) => {
+  if (!autoLaunchSupported()) {
+    return { ok: false, supported: false, enabled: false, message: mainT(resolveLang(), 'msg.autoLaunchUnsupported') }
+  }
+  const next = Boolean(enabled)
+  try {
+    app.setLoginItemSettings({ openAtLogin: next, openAsHidden: false })
+  } catch {
+    return { ok: false, supported: true, enabled: readAutoLaunch().enabled, message: mainT(resolveLang(), 'msg.autoLaunchFailed') }
+  }
+  const state = readAutoLaunch()
+  push(mainT(resolveLang(), state.enabled ? 'msg.autoLaunchOn' : 'msg.autoLaunchOff'))
+  return { ok: true, ...state }
+})
 
 ipcMain.handle('app:check-update', async () => checkUpdate({ force: true }))
 

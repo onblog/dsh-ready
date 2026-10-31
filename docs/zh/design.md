@@ -175,6 +175,37 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 响应 `{ ok, theme }`，同时持久化到应用数据目录 `settings.json`。仅接受 `light` / `dark`，其它值（含历史遗留的 `system`）一律按 `dark` 处理。
 
+### `app:info` / `app:auto-launch`
+
+`app:info` 无参数，返回 `{ version, site, github, developer, autoLaunch }`；
+`autoLaunch` 为 `{ supported, enabled }`，`supported` 只在安装版 macOS / Windows 上为 true。
+
+`app:auto-launch` 请求 `{ enabled }`，调用 `app.setLoginItemSettings({ openAtLogin })` 并回读真实状态。
+
+| 响应字段 | 含义 | 取值范围 |
+| --- | --- | --- |
+| ok | 是否写入成功 | true / false |
+| supported | 平台是否支持开机自启动 | true / false（Linux 与开发模式为 false） |
+| enabled | 回读到的真实状态 | true / false |
+
+平台不支持时返回 `ok:false` 并附说明文案，主进程日志同步记录一次结果。
+
+### `settings:get` / `settings:set`
+
+`settings:get` 无参数，返回 `{ port, openInBrowser, telemetry, autoUpdateCheck, npmRegistry, proxy, dshArgs }`。
+
+`settings:set` 接受上述字段的子集，返回 `{ ok, settings, dropped }`：
+
+| 字段 | 含义 | 取值范围 |
+| --- | --- | --- |
+| ok | 是否写入成功 | true / false |
+| settings | 回读后的完整设置 | 同 settings:get |
+| dropped | 被白名单丢弃的启动参数 | 字符串数组，可为空 |
+
+写盘前统一做归一化：`proxy` 走 `normalizeProxy`（非法则存空串），`dshArgs` 走 `parseDshArgs`
+（丢弃 `--port` 等非法 token），布尔字段只接受 `true` / `false`。`npmRegistry` 变化时清空源缓存并
+重新拉取最新版本。端口与主题、语言仍走各自的 `port:set` / `theme:set` / `lang:set`。
+
 ### 事件 `dsh:event`
 
 | 字段 | 含义 | 取值范围 |
@@ -213,20 +244,40 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 - `prefers-reduced-motion: reduce` 下只显示静态头像，不加载视频。
 - 视频为 VP9 + alpha 透明通道（640×360），`object-fit: cover` 填进 86×86 的头像区。
 
-## 关于与更新
+## 设置与更新
 
-- 头部按钮顺序固定为：语言（中文/EN）→ 主题（浅色/深色）→ 关于 → 退出；主题只有浅色与深色两态，不跟随系统。
-- 「关于」是应用内自绘面板：应用图标与版本、开发者 Martin、邮箱 hello@wordtk.com、
-  GitHub 仓库地址、官网地址；四行信息按「图标列 + 文字列」两列对齐，整块水平居中。
-  点击 Martin 打开其 GitHub 主页（github.com/onblog），邮箱、仓库与官网各自打开对应目标；
-  所有外链都通过主进程的 `app:open-external` 打开，只允许官网、仓库、开发者主页与这个邮箱，
+- 头部只有四个图标按钮，顺序固定：语言 → 主题 → 设置 → 退出。图标按钮不写文字，
+  语义放在 `title` 与 `aria-label`（例如「切换主题 · 浅色」），所以 468px 宽度下也只有一个图标行；
+  主题图标显示的是「将要切换到的主题」，深色态显示太阳；语言图标固定用「文A」字形，
+  不使用 `EN` / `中文` 文字，也不用地球图标。
+- 语言与主题图标点击即切换，和设置页共用同一份状态；设置页里是分段控件，能直接指到目标值。
+- 「设置」是应用内自绘面板，由原「关于」弹窗改造而来：应用图标 + 名称 + 版本；
+  开发者信息严格一行（👤 Martin · ✉ 邮箱 · GitHub · 官网，10.5px 可点击），不换行、超出裁切；
+  下面是三组设置，底部是「请我喝杯咖啡」。不再展示开源协议与商业授权信息。
+- 设置项（三组，顺序固定）：
+  - **常规**：开机自启动、DSH 端口、启动后自动打开浏览器、主题、语言。
+  - **网络**：npm 源（自动 / 官方 / 镜像）、HTTP(S) 代理、DSH 附加启动参数。
+  - **隐私与更新**：匿名启动上报、自动检查更新、检查更新。
+- 端口只有一个入口：设置页的「DSH 端口」。主界面端口改为只读展示（`span`，不再是可点击按钮），
+  DSH 正在运行或检测到外部实例时输入框锁定并提示「运行中不可修改」。
+- 开机自启动：`role="switch"` 自绘开关，主进程调 `app.setLoginItemSettings`；
+  仅安装版 macOS / Windows 可用，Linux 与开发模式禁用并在开关下方给出说明。
+- 启动后自动打开浏览器：默认关闭。关闭时启动命令追加 `--no-open`，开启则由 DSH 自己拉起浏览器。
+- npm 源：`auto` 保留原有的双源测速；`official` / `mirror` 直接锁定，跳过测速。
+  切换后清空源缓存并重新拉取最新版本。
+- HTTP(S) 代理：只写进 npm 与 DSH 子进程的 `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` / `NO_PROXY`，
+  应用自身的版本查询与更新检查仍然直连（设置项下方明写这句）；格式非法时拒绝保存并高亮。
+- DSH 附加启动参数：空格分词后逐 token 过白名单（`--flag` / `--flag=value` / flag 后的值 token），
+  绝不过 shell；`--port` / `-p` 一律丢弃（端口由设置项统一管理），被丢弃的 token 会显示在行内提示里。
+- 匿名启动上报与自动检查更新各有一个开关：上报开关只管 `/api/ping`；自动更新开关只管每天一次的
+  `/api/release`；手动「检查更新」始终可用。环境变量 `DSH_READY_NO_TELEMETRY=1` 仍是硬关闭。
+- 所有切换控件均为自绘：分段控件与开关都是 `button` + `aria-checked`，文本输入框也是自绘样式，
+  不使用系统 `select` / `checkbox` / 原生确认框。
+- 外链统一走主进程 `app:open-external`，只允许官网、仓库、开发者主页与开发者邮箱，
   避免任意 URL 被利用。
-- 「检测更新」手动调用 `app:check-update`；应用启动时另有每天最多一次的自动检查。
-  两者都只请求官网 `/api/release`，比较版本号，绝不上报设备信息。
 - 发现新版本时弹应用内确认框，确认后用系统浏览器打开官网下载页。
-- 「关于」面板底部提供「请我喝杯咖啡」打赏入口，点击打开开发者 GitHub 主页（github.com/onblog）。
-- 启动上报（`/api/ping`）只含随机会话级设备 ID 与版本号；设
-  `DSH_READY_NO_TELEMETRY=1` 可同时关闭上报与更新检查。
+- 面板宽 400px、`max-height: calc(100vh - 44px)`，内容超出时卡片内部滚动，窗口尺寸不变。
+- 启动上报（`/api/ping`）只含随机会话级设备 ID 与版本号。
 
 ## 平台与构建
 

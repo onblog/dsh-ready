@@ -48,9 +48,9 @@ DeepSeek Harness（`dsh`）是一个命令行工具。对不常待在终端里�
 
 | 平台 | 安装包 | 说明 |
 | --- | --- | --- |
-| macOS Apple Silicon | `dsh-ready-1.0.9-arm64.dmg` | M1 / M2 / M3 / M4 |
-| macOS Intel | `dsh-ready-1.0.9-x64.dmg` | Intel 芯片的 Mac |
-| Windows x64 | `dsh-ready-1.0.9-x64.exe` | Windows 10 / 11 |
+| macOS Apple Silicon | `dsh-ready-1.0.10-arm64.dmg` | M1 / M2 / M3 / M4 |
+| macOS Intel | `dsh-ready-1.0.10-x64.dmg` | Intel 芯片的 Mac |
+| Windows x64 | `dsh-ready-1.0.10-x64.exe` | Windows 10 / 11 |
 
 到 **[dsh.wordtk.com](https://dsh.wordtk.com)** 下载：安装包放在 R2，官网永远提供最新版本。
 
@@ -70,8 +70,8 @@ macOS 安装包带 **ad-hoc 签名**，Apple Silicon 可直接运行，但没有
 - **登录 shell 环境。** 从 Finder 启动的图形应用只有 launchd 的精简环境。应用会执行一次 `$SHELL -ilc 'env -0'` 再合并，`~/.zshrc` 里的 API Key、代理、`PATH` 都能生效，和终端里手敲一致。想跳过就设 `DSH_READY_SKIP_SHELL_ENV=1`。
 - **只有一个实例、一个端口。** 每 4 秒扫描一次监听目标端口的 `dsh web`，发现外部实例可以停止或一键接管；其它端口的 DSH 一律不碰。
 - **先出升级计划，再动手。** 逐个核对插件声明的 `@deepseek-ai/dsh*` peer 范围与 `engines.dsh`，有阻塞项只提示、不改环境；检查通过才把命令列出来并执行。
-- **端口不偷偷改。** 默认 3080，可在界面上改；端口被占用时直接报错，而不是悄悄顺延到你找不到的地址。
-- **关于与更新。** 右上角「关于」里有开发者联系方式，可手动检测更新；应用每天也会自动问一次官网，有新版本时提示并可一键跳转下载页。
+- **端口不偷偷改。** 默认 3080，在设置页改（主界面只读展示）；端口被占用时直接报错，而不是悄悄顺延到你找不到的地址。
+- **设置集中在一处。** 右上角只有四个图标：语言（文A）、主题、设置、退出。设置页分三组：常规（开机自启动、DSH 端口、启动后自动打开浏览器、主题、语言）、网络（npm 源自动/官方/镜像、HTTP(S) 代理、DSH 附加启动参数）、隐私与更新（匿名上报、自动检查更新、手动检查）；端口只在设置页改，主界面只读；附加参数过白名单、绝不过 shell，`--port` 一律忽略。底部是「请我喝杯咖啡」。
 - **缺 Node 才安装。** 检测登录 shell 里的 Node ≥ 22.18 与 npm；缺失时先测速官方源与国内镜像，再用 nvm 把 Node 22 装到 `~/.nvm` 并写入 shell 配置，不占用应用目录。
 
 ## 目录结构

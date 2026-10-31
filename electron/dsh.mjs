@@ -6,12 +6,13 @@ import { ensureRuntime, resolveRuntime, npmLauncher, runtimeEnv, spawnAsync, sea
 import { run } from './exec.mjs'
 import { push } from './logger.mjs'
 import { ensureShellEnv } from './shellenv.mjs'
+import { readSettings } from './paths.mjs'
 
 export const PACKAGE = '@deepseek-ai/dsh'
 
 export const REGISTRIES = [
-  { name: 'npm 官方源', base: 'https://registry.npmjs.org' },
-  { name: '国内镜像', base: 'https://registry.npmmirror.com' },
+  { key: 'official', name: 'npm 官方源', base: 'https://registry.npmjs.org' },
+  { key: 'mirror', name: '国内镜像', base: 'https://registry.npmmirror.com' },
 ]
 
 function requestHead(url, timeout = 8000) {
@@ -57,7 +58,14 @@ let registryPromise = null
  * The registry choice is global: the first screen's state:get and versions:list fire concurrently,
  * so both reuse the same in-flight Promise to avoid duplicate speed tests and duplicate log output.
  */
+export function resetRegistryCache() {
+  registryPromise = null
+}
+
 export function pickRegistry() {
+  // A pinned registry skips the speed test entirely: the choice belongs to the user.
+  const pinned = REGISTRIES.find((item) => item.key === readSettings().npmRegistry)
+  if (pinned) return Promise.resolve(pinned.base)
   if (!registryPromise) {
     registryPromise = pickRegistryOnce().catch((error) => {
       registryPromise = null

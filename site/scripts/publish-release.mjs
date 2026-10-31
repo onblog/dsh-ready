@@ -79,6 +79,10 @@ function runWrangler(args, successPattern, { failPattern, timeoutMs = 10 * 60 * 
     child.on('error', finish);
     child.on('exit', (code) => {
       if (successPattern.test(output)) return finish(null);
+      // The exit code is authoritative. Newer wrangler builds print their progress
+      // differently (a successful `kv key delete` prints nothing at all), so matching
+      // on output alone reported success as failure.
+      if (code === 0) return finish(null);
       finish(new Error(`wrangler exited with code ${code}:\n${output}`));
     });
   });

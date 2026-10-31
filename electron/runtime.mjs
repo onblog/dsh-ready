@@ -15,6 +15,7 @@ import https from 'node:https'
 import { isNodeVersionOk } from './exec.mjs'
 import { push } from './logger.mjs'
 import { resetShellEnv } from './shellenv.mjs'
+import { proxyEnv } from './paths.mjs'
 
 /**
  * Node / npm from the user environment.
@@ -440,7 +441,8 @@ export function runtimeEnv(runtime) {
   const dirs = [nodeDir, ...candidateDirs()].filter(Boolean)
   const current = String(process.env.PATH ?? '')
   const merged = [...new Set([...dirs, ...current.split(sep).filter(Boolean)])]
-  return { ...process.env, PATH: merged.join(sep) }
+  // Proxy variables reach npm and DSH; the app's own requests never go through them.
+  return { ...process.env, PATH: merged.join(sep), ...proxyEnv() }
 }
 
 /** npm invocation arguments: use the npm from the user environment and specify no prefix. */

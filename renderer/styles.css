@@ -99,7 +99,6 @@ body {
   -webkit-app-region: drag;
 }
 
-.theme-btn,
 .btn,
 .picker {
   -webkit-app-region: no-drag;
@@ -132,24 +131,6 @@ h1 {
   color: var(--ink-3);
   letter-spacing: 0.04em;
   white-space: nowrap;
-}
-
-.theme-btn {
-  flex: none;
-  font: inherit;
-  font-size: 11px;
-  color: var(--ink-2);
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  padding: 4px 7px;
-  cursor: pointer;
-  transition: border-color 120ms ease, color 120ms ease;
-}
-
-.theme-btn:hover {
-  color: var(--ink);
-  border-color: var(--line-strong);
 }
 
 /* ---------- Status area & pet ---------- */
@@ -382,52 +363,18 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
   min-height: 18px;
 }
 
+/* Read-only here: the port is edited in the settings sheet only. */
 .port-value {
   font: inherit;
   font-size: 12px;
+  line-height: 18px;
   color: var(--ink);
   background: transparent;
   border: 0;
-  border-bottom: 1px dashed var(--line-strong);
+  border-bottom: 1px dashed transparent;
   padding: 0 0 1px;
-  cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease;
-}
-
-.port-value:hover:not(:disabled) {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.port-value:disabled {
   cursor: default;
-  border-color: transparent;
-  opacity: 0.7;
-}
-
-.port-value:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 2px;
-}
-
-.port-input {
-  width: 84px;
-  height: 21px;
-  line-height: 19px;
-  font-size: 12px;
-  color: var(--ink);
-  background: var(--panel);
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  padding: 1px 6px;
-  outline: none;
   user-select: text;
-}
-
-.port-input[hidden],
-.port-value[hidden] {
-  display: none;
 }
 
 .fact dd {
@@ -892,7 +839,6 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
 }
 
 .btn:focus-visible,
-.theme-btn:focus-visible,
 .clear:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -1024,8 +970,53 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
   }
 }
 
-/* ---------- About panel ---------- */
-.about {
+
+/* ---------- Header icon buttons ---------- */
+
+.icon-btn {
+  -webkit-app-region: no-drag;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  color: var(--ink-2);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.icon-btn:hover {
+  color: var(--ink);
+  background: var(--deep);
+  border-color: var(--line);
+}
+
+.icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The theme button always shows the theme it switches to, never the active one. */
+:root[data-theme='dark'] .ico-moon {
+  display: none;
+}
+
+:root[data-theme='light'] .ico-sun {
+  display: none;
+}
+
+/* ---------- Settings sheet ---------- */
+
+.sheet {
   position: fixed;
   inset: 0;
   z-index: 70;
@@ -1039,30 +1030,33 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
   -webkit-app-region: no-drag;
 }
 
-.about[hidden] {
+.sheet[hidden] {
   display: none;
 }
 
-/* While the About panel is open the header must not double as a window drag
+/* While the settings sheet is open the header must not double as a window drag
    region, otherwise clicks on controls near the top edge (the X button) are
    swallowed by the window manager. */
-.about-open .bar {
+.sheet-open .bar {
   -webkit-app-region: no-drag;
 }
 
-.about-card {
+.sheet-card {
   position: relative;
+  outline: none;
   width: 100%;
-  max-width: 336px;
-  padding: 28px 24px 20px;
+  max-width: 400px;
+  max-height: calc(100vh - 44px);
+  overflow-y: auto;
+  padding: 22px 22px 16px;
   border-radius: 16px;
   border: 1px solid var(--line-strong);
   background: var(--panel);
-  text-align: center;
-  box-shadow: 0 24px 64px rgba(8, 14, 20, 0.5);
+  box-shadow: var(--shadow);
+  -webkit-app-region: no-drag;
 }
 
-.about-close {
+.sheet-close {
   position: absolute;
   top: 10px;
   right: 10px;
@@ -1070,147 +1064,320 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
   height: 26px;
   display: grid;
   place-items: center;
-  padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: transparent;
   color: var(--ink-3);
   cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
 }
 
-.about-close:hover {
+.sheet-close:hover {
   background: var(--deep);
   color: var(--ink);
 }
 
-.about-close svg {
+.sheet-close svg {
   width: 10px;
   height: 10px;
 }
 
-.about-head {
+.sheet-head {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 12px;
+  padding-right: 26px;
 }
 
-.about-icon {
-  width: 68px;
-  height: 68px;
-  border-radius: 18px;
+.sheet-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
   border: 1px solid var(--line);
   object-fit: cover;
-  box-shadow: 0 12px 26px rgba(8, 14, 20, 0.32);
+  box-shadow: 0 10px 22px rgba(8, 14, 20, 0.28);
 }
 
-.about-title h2 {
+.sheet-title h2 {
   margin: 0;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 650;
   letter-spacing: 0.01em;
 }
 
-.about-version {
+.sheet-version {
   display: inline-block;
-  margin-top: 3px;
-  font-size: 10.5px;
+  margin-top: 2px;
+  font-size: 10px;
   color: var(--ink-3);
   letter-spacing: 0.02em;
 }
 
-.about-list {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  width: fit-content;
-  max-width: 100%;
-  gap: 5px;
-  margin: 0 auto 18px;
-  padding: 0;
-  list-style: none;
-}
-
-.about-list li {
+/* Developer credits: one single line, never wrapped. */
+.dev-line {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  padding: 5px 6px;
-  font-size: 11.5px;
-  color: var(--ink-2);
+  justify-content: center;
+  gap: 5px;
+  margin-top: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 10.5px;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
-.about-ico {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  background: var(--accent-soft);
-  color: var(--accent);
+.dev-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 3px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.dev-item:hover {
+  color: var(--ink);
+  background: var(--deep);
+}
+
+.dev-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.dev-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.dev-ico {
+  width: 11px;
+  height: 11px;
   flex: none;
 }
 
-.about-ico svg {
-  width: 13px;
-  height: 13px;
+.dev-sep {
+  color: var(--ink-3);
+  opacity: 0.7;
 }
 
-.about-name {
-  color: var(--ink);
+.sheet-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.group-title {
+  margin: 14px 0 2px;
+  font-size: 10px;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
 }
 
-.about-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink-2);
+.group-title:first-child {
+  margin-top: 6px;
+}
+
+/* Stacked row: label on top, full-width input below. */
+.row.stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.field {
+  -webkit-app-region: no-drag;
+  width: 100%;
+  height: 28px;
+  padding: 0 9px;
   font: inherit;
   font-size: 11.5px;
+  color: var(--ink);
+  background: var(--deep);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+  user-select: text;
+}
+
+.field::placeholder {
+  color: var(--ink-3);
+  opacity: 0.8;
+}
+
+.field:hover {
+  border-color: var(--line-strong);
+}
+
+.field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  background: var(--panel);
+}
+
+.field.is-invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(211, 136, 120, 0.18);
+}
+
+.field:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.field.narrow {
+  width: 92px;
+  flex: none;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--ink);
+  min-width: 0;
+}
+
+.row-note {
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--ink-3);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.row-note.is-error {
+  color: var(--danger);
+}
+
+/* Segmented control: custom, never a native select. */
+.seg {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--deep);
+}
+
+.seg-item {
+  min-width: 46px;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 11px;
   cursor: pointer;
-  text-decoration: none;
+  transition: background 140ms ease, color 140ms ease;
 }
 
-.about-link:hover {
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.about-link.about-name {
+.seg-item[aria-checked='true'] {
+  background: var(--panel);
   color: var(--ink);
   font-weight: 600;
+  box-shadow: 0 1px 3px rgba(8, 14, 20, 0.18);
 }
 
-.about-update {
+.seg-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Switch: a real button with role="switch", not a native checkbox. */
+.switch {
+  position: relative;
+  flex: none;
+  width: 38px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--line-strong);
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  transition: transform 160ms cubic-bezier(0.3, 1.4, 0.5, 1), background 160ms ease;
+}
+
+.switch[aria-checked='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.switch[aria-checked='true'] .switch-knob {
+  transform: translateX(16px);
+  background: var(--accent);
+}
+
+.switch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.row-btn {
+  flex: none;
+  height: 26px;
+  padding: 0 11px;
+  font-size: 11px;
+  border-radius: 7px;
+}
+
+.sheet-foot {
   display: flex;
   justify-content: center;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
+  margin-top: 12px;
 }
 
-.about-update .btn {
-  height: 32px;
-  padding: 0 16px;
-  font-size: 11.5px;
-  border-radius: 8px;
-}
-
-.about-support {
-  display: flex;
-  justify-content: center;
-  margin-top: 10px;
-}
-
-.about-sponsor {
+.sponsor {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   height: 32px;
-  padding: 0 16px;
+  padding: 0 18px;
   border: 1px solid var(--sponsor-line);
   border-radius: 999px;
   background: var(--sponsor-bg);
@@ -1222,20 +1389,19 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
   transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
-.about-sponsor svg {
+.sponsor svg {
   width: 14px;
   height: 14px;
   flex: none;
 }
 
-.about-sponsor:hover {
+.sponsor:hover {
   border-color: var(--sponsor-line-strong);
   background: var(--sponsor-bg-strong);
   transform: translateY(-1px);
 }
 
-.about-license {
-  margin: 14px 0 0;
-  font-size: 10px;
-  color: var(--ink-3);
+.sponsor:focus-visible {
+  outline: 2px solid var(--sponsor-ink);
+  outline-offset: 2px;
 }

@@ -17,7 +17,10 @@ contextBridge.exposeInMainWorld('api', {
   setLang: (lang) => ipcRenderer.invoke('lang:set', lang),
   setPort: (port) => ipcRenderer.invoke('port:set', port),
   getAppInfo: () => ipcRenderer.invoke('app:info'),
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  setSettings: (patch) => ipcRenderer.invoke('settings:set', patch),
   checkUpdate: () => ipcRenderer.invoke('app:check-update'),
+  setAutoLaunch: (enabled) => ipcRenderer.invoke('app:auto-launch', enabled),
   openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
   quit: () => ipcRenderer.invoke('app:quit'),
   onEvent: (fn) => {

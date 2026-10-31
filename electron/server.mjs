@@ -2,10 +2,10 @@ import { spawn } from 'node:child_process'
 import { createConnection } from 'node:net'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { dirname } from 'node:path'
 import http from 'node:http'
 import { resolveDsh } from './dsh.mjs'
-import { ensureRuntime } from './runtime.mjs'
+import { ensureRuntime, runtimeEnv } from './runtime.mjs'
+import { readSettings, parseDshArgs } from './paths.mjs'
 import { push } from './logger.mjs'
 import { ensureShellEnv } from './shellenv.mjs'
 
@@ -88,14 +88,19 @@ export async function start(targetPort) {
     throw new Error(`端口 ${desired} 已被占用，请先停止占用它的程序，或点击界面上的端口改成其它值`)
   }
   port = desired
-  const nodeDir = dirname(runtime.nodePath)
-  const env = {
-    ...process.env,
-    PATH: `${nodeDir}:${process.env.PATH ?? ''}`,
-  }
+  // runtimeEnv() already puts node's bin dir first on PATH and adds the configured proxy.
+  const env = runtimeEnv(runtime)
+  const settings = readSettings()
+  const extra = parseDshArgs(settings.dshArgs)
+  if (extra.dropped.length) push(`已忽略不可用的启动参数：${extra.dropped.join(' ')}`)
 
-  push(`启动 DSH（端口 ${desired}）`)
-  child = spawn(target.path, ['web', '--no-open', '--port', String(desired)], {
+  const args = ['web']
+  // DSH opens the browser by itself unless --no-open is passed.
+  if (!settings.openInBrowser) args.push('--no-open')
+  args.push('--port', String(desired), ...extra.args)
+
+  push(`启动 DSH（端口 ${desired}${extra.args.length ? `，附加参数 ${extra.args.join(' ')}` : ''}）`)
+  child = spawn(target.path, args, {
     cwd: homedir(),
     env,
     detached: process.platform !== 'win32',

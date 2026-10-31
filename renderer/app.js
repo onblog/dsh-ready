@@ -13,7 +13,6 @@ const els = {
   hint: $('hint'),
   addr: $('addr'),
   portValue: $('portValue'),
-  portInput: $('portInput'),
   actions: document.querySelector('.actions'),
   flow: $('flow'),
   flowTitle: $('flowTitle'),
@@ -45,16 +44,31 @@ const els = {
   modalCancel: $('modalCancel'),
   nodeInfo: $('nodeInfo'),
   runtimeInfo: $('runtimeInfo'),
-  about: $('about'),
-  aboutBtn: $('aboutBtn'),
-  aboutClose: $('aboutClose'),
-  aboutVersion: $('aboutVersion'),
-  aboutEmail: $('aboutEmail'),
-  aboutMartin: $('aboutMartin'),
-  aboutGithub: $('aboutGithub'),
-  aboutSite: $('aboutSite'),
+  settings: $('settings'),
+  settingsBtn: $('settingsBtn'),
+  settingsClose: $('settingsClose'),
+  settingsVersion: $('settingsVersion'),
+  devName: $('devName'),
+  devEmail: $('devEmail'),
+  devGithub: $('devGithub'),
+  devSite: $('devSite'),
+  autoLaunch: $('autoLaunch'),
+  autoLaunchNote: $('autoLaunchNote'),
+  portField: $('portField'),
+  portNote: $('portNote'),
+  openInBrowser: $('openInBrowser'),
+  themeSeg: $('themeSeg'),
+  langSeg: $('langSeg'),
+  registrySeg: $('registrySeg'),
+  proxyField: $('proxyField'),
+  proxyNote: $('proxyNote'),
+  argsField: $('argsField'),
+  argsNote: $('argsNote'),
+  telemetry: $('telemetry'),
+  autoUpdateCheck: $('autoUpdateCheck'),
   updateBtn: $('updateBtn'),
-  aboutSponsor: $('aboutSponsor'),
+  updateNote: $('updateNote'),
+  sponsorBtn: $('sponsorBtn'),
 }
 
 const BUSY_STATUS = new Set(['starting', 'stopping', 'installing', 'upgrading', 'uninstalling', 'takingover'])
@@ -76,9 +90,20 @@ function statusText(status) {
   return t(`status.${status}`)
 }
 
-/** The button shows the theme it switches to, not the one currently active. */
-function themeLabel(theme) {
-  return t(theme === 'dark' ? 'theme.light' : 'theme.dark')
+/**
+ * Icon buttons carry no text: the label lives in the tooltip / aria-label so the
+ * header stays a single row of icons at 468px.
+ */
+function syncHeaderButtons(theme, lang) {
+  const nextTheme = theme === 'light' ? 'dark' : 'light'
+  const themeTitle = `${t('theme.aria')} · ${t(nextTheme === 'dark' ? 'theme.dark' : 'theme.light')}`
+  els.themeBtn.title = themeTitle
+  els.themeBtn.setAttribute('aria-label', themeTitle)
+
+  const nextLang = lang === 'en' ? 'zh' : 'en'
+  const langTitle = `${t('lang.aria')} · ${nextLang === 'en' ? 'English' : '中文'}`
+  els.langBtn.title = langTitle
+  els.langBtn.setAttribute('aria-label', langTitle)
 }
 
 let state = null
@@ -561,11 +586,8 @@ function render(next) {
 
   // Host is always 127.0.0.1 and is shown even when stopped; the port gets its own column.
   els.addr.textContent = '127.0.0.1'
-  if (els.portInput.hidden) {
-    els.portValue.textContent = String(next.targetPort ?? 3080)
-  }
-  els.portValue.disabled = busy || status === 'running'
-  els.portValue.title = t(els.portValue.disabled ? 'port.lockedTitle' : 'port.editTitle')
+  els.portValue.textContent = String(next.targetPort ?? 3080)
+  els.portValue.title = t('sheet.portHint')
   if (next.latestVersion) {
     els.latestTag.textContent = t('flow.latest', { version: next.latestVersion })
     if (!selectedVersion) {
@@ -619,11 +641,11 @@ function render(next) {
     : t('node.none')
   els.runtimeInfo.textContent = t(`runtime.${next.runtime === 'system' ? 'system' : 'missing'}`)
 
-  document.documentElement.dataset.theme = THEMES.includes(next.theme) ? next.theme : 'dark'
-  els.themeBtn.textContent = themeLabel(next.theme)
-  els.themeBtn.setAttribute('aria-label', t('theme.aria'))
-  els.langBtn.textContent = next.lang === 'en' ? '中文' : 'EN'
-  els.langBtn.setAttribute('aria-label', t('lang.aria'))
+  const theme = THEMES.includes(next.theme) ? next.theme : 'dark'
+  document.documentElement.dataset.theme = theme
+  syncHeaderButtons(theme, next.lang)
+  syncSettingsControls(theme, next.lang)
+  renderSettingsSheet()
   showHint()
 }
 
@@ -671,9 +693,9 @@ function showModal({ title, lines = [], confirmText, cancelText, danger = false 
 }
 
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && !els.about.hidden) {
+  if (event.key === 'Escape' && !els.settings.hidden) {
     event.preventDefault()
-    closeAbout()
+    closeSettings()
   }
 })
 
@@ -790,69 +812,28 @@ document.addEventListener('keydown', (event) => {
   }
 })
 
-function beginPortEdit() {
-  if (els.portValue.disabled) return
-  els.portInput.value = String(state?.targetPort ?? 3080)
-  els.portValue.hidden = true
-  els.portInput.hidden = false
-  els.portInput.focus()
-  els.portInput.select()
-  notice(t('port.hint'))
-}
-
-async function applyPort(raw) {
-  els.portInput.hidden = true
-  els.portValue.hidden = false
-  const port = Number(String(raw).trim())
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    notice(t('port.invalid'), true)
-    return
-  }
-  if (port === state?.targetPort) return
-  const result = await window.api.setPort(port)
-  if (!result?.ok) {
-    notice(result?.message || t('port.changeFailed'), true)
-    return
-  }
-  notice(t('port.changed', { port: result.port }))
-  try {
-    render(await window.api.getState())
-  } catch {
-    // Completed by the status event.
-  }
-}
-
-els.portValue.addEventListener('click', beginPortEdit)
-
-els.portInput.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') {
-    event.preventDefault()
-    applyPort(els.portInput.value)
-  } else if (event.key === 'Escape') {
-    event.preventDefault()
-    els.portInput.hidden = true
-    els.portValue.hidden = false
-  }
-})
-
-els.portInput.addEventListener('blur', () => {
-  if (!els.portInput.hidden) applyPort(els.portInput.value)
-})
-
-els.themeBtn.addEventListener('click', async () => {
-  const current = document.documentElement.dataset.theme || 'dark'
-  const next = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length]
+async function applyTheme(theme) {
+  const next = THEMES.includes(theme) ? theme : 'dark'
   document.documentElement.dataset.theme = next
-  els.themeBtn.textContent = themeLabel(next)
+  syncHeaderButtons(next, state?.lang)
+  syncSettingsControls(next, state?.lang)
   await window.api.setTheme(next)
-})
+}
 
-els.langBtn.addEventListener('click', async () => {
-  const current = state?.lang === 'en' ? 'en' : 'zh'
-  const next = current === 'zh' ? 'en' : 'zh'
+async function switchLanguage(lang) {
+  const next = LANGS.includes(lang) ? lang : 'zh'
   state = { ...(state ?? {}), lang: next }
   await applyLanguage(next)
   window.api.setLang(next)
+}
+
+els.themeBtn.addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'
+  void applyTheme(next)
+})
+
+els.langBtn.addEventListener('click', () => {
+  void switchLanguage(state?.lang === 'en' ? 'zh' : 'en')
 })
 
 els.quitBtn.addEventListener('click', () => requestQuit())
@@ -866,28 +847,173 @@ els.clearBtn.addEventListener('click', async () => {
   els.log.append(empty)
 })
 
-/* ---------- About panel ---------- */
+/* ---------- Settings sheet ---------- */
 
 let appInfo = null
+let settings = null
+let updateNoteTimer = null
+let updateNoteState = { kind: 'idle', version: '' }
 
-async function openAbout() {
+/** Header icons and the settings controls always mirror the live state, wherever it was changed. */
+function syncSettingsControls(theme, lang) {
+  const currentTheme = THEMES.includes(theme) ? theme : 'dark'
+  for (const item of els.themeSeg.querySelectorAll('.seg-item')) {
+    item.setAttribute('aria-checked', item.dataset.value === currentTheme ? 'true' : 'false')
+  }
+  const currentLang = lang === 'en' ? 'en' : 'zh'
+  for (const item of els.langSeg.querySelectorAll('.seg-item')) {
+    item.setAttribute('aria-checked', item.dataset.value === currentLang ? 'true' : 'false')
+  }
+}
+
+/** The switch is a real button, so the checked state lives in aria-checked + data-on. */
+function renderAutoLaunch(info) {
+  const supported = Boolean(info?.supported) && Boolean(appInfo)
+  const enabled = Boolean(info?.enabled)
+  els.autoLaunch.disabled = !supported
+  els.autoLaunch.dataset.on = enabled ? 'true' : 'false'
+  els.autoLaunch.setAttribute('aria-checked', enabled ? 'true' : 'false')
+  els.autoLaunchNote.hidden = false
+  if (!appInfo) els.autoLaunchNote.textContent = '—'
+  else if (!supported) els.autoLaunchNote.textContent = t('sheet.autoLaunchUnsupported')
+  else els.autoLaunchNote.textContent = t(enabled ? 'sheet.autoLaunchOn' : 'sheet.autoLaunchOff')
+}
+
+/** Switches are plain buttons: the state lives in aria-checked (and data-on for the CSS knob). */
+function setSwitch(button, on) {
+  button.dataset.on = on ? 'true' : 'false'
+  button.setAttribute('aria-checked', on ? 'true' : 'false')
+}
+
+/** Paint every control from the settings snapshot; called on open, after every write and on language change. */
+function renderSettingsSheet() {
+  if (!settings) return
+  setSwitch(els.openInBrowser, Boolean(settings.openInBrowser))
+  setSwitch(els.telemetry, settings.telemetry !== false)
+  setSwitch(els.autoUpdateCheck, settings.autoUpdateCheck !== false)
+
+  for (const item of els.registrySeg.querySelectorAll('.seg-item')) {
+    item.setAttribute('aria-checked', item.dataset.value === settings.npmRegistry ? 'true' : 'false')
+  }
+
+  if (document.activeElement !== els.proxyField) els.proxyField.value = settings.proxy ?? ''
+  if (document.activeElement !== els.argsField) els.argsField.value = settings.dshArgs ?? ''
+  if (document.activeElement !== els.portField) els.portField.value = String(settings.port ?? 3080)
+
+  const locked = state?.status === 'running' || state?.status === 'external'
+  els.portField.disabled = locked
+  els.portNote.textContent = locked ? t('sheet.portLocked') : t('sheet.portHint')
+
+  els.proxyNote.textContent = t('sheet.proxyHint')
+  els.proxyNote.classList.remove('is-error')
+  const droppedNow = parseArgsPreview(settings.dshArgs ?? '')
+  els.argsNote.textContent = droppedNow.length
+    ? t('sheet.argsDropped', { args: droppedNow.join(' ') })
+    : t('sheet.argsHint')
+  els.argsNote.classList.toggle('is-error', droppedNow.length > 0)
+}
+
+/**
+ * Client-side mirror of the main-process whitelist, only to show the user what will be
+ * ignored. The main process stays authoritative.
+ */
+function parseArgsPreview(text) {
+  const tokens = String(text ?? '').trim().split(/\s+/).filter(Boolean)
+  const longFlag = /^--[A-Za-z0-9][A-Za-z0-9._-]*(=[A-Za-z0-9._:@/%,+~=-]+)?$/
+  const shortFlag = /^-[A-Za-z]$/
+  const value = /^[A-Za-z0-9][A-Za-z0-9._:@,+~=-]*$/
+  const portFlag = /^(--port|--listen|-p)(=|$)/
+  const dropped = []
+  let expectValue = false
+  let dropValue = false
+  for (const token of tokens) {
+    if (token.startsWith('-')) {
+      if (portFlag.test(token)) {
+        dropped.push(token)
+        dropValue = !token.includes('=')
+        expectValue = false
+        continue
+      }
+      if (!longFlag.test(token) && !shortFlag.test(token)) {
+        dropped.push(token)
+        dropValue = false
+        expectValue = false
+        continue
+      }
+      dropValue = false
+      expectValue = !token.includes('=')
+      continue
+    }
+    if (dropValue) {
+      dropped.push(token)
+      dropValue = false
+      expectValue = false
+      continue
+    }
+    if (expectValue && value.test(token)) {
+      expectValue = false
+      continue
+    }
+    dropped.push(token)
+    expectValue = false
+  }
+  return dropped
+}
+
+/** Persist one patch and repaint; returns the main-process answer so callers can flag errors. */
+async function patchSettings(patch) {
+  const result = await window.api.setSettings(patch).catch(() => null)
+  if (result?.ok) {
+    settings = { ...(settings ?? {}), ...result.settings }
+    renderSettingsSheet()
+  }
+  return result
+}
+
+const UPDATE_NOTE_KEYS = {
+  idle: 'sheet.updateCurrent',
+  checking: 'sheet.updateChecking',
+  found: 'sheet.updateFound',
+  latest: 'sheet.updateLatest',
+  failed: 'sheet.updateFailed',
+}
+
+/** One state object drives the note, so switching language re-renders the current message instead of a stale one. */
+function renderUpdateNote(kind = updateNoteState.kind, version = updateNoteState.version) {
+  updateNoteState = { kind, version }
+  const key = UPDATE_NOTE_KEYS[kind] || UPDATE_NOTE_KEYS.idle
+  els.updateNote.textContent = t(key, { version: version || appInfo?.version || '—' })
+}
+
+async function openSettings() {
   closeModal(false)
   try {
-    appInfo = appInfo || (await window.api.getAppInfo())
+    appInfo = await window.api.getAppInfo()
   } catch {
     appInfo = null
   }
-  els.aboutVersion.textContent = `v${appInfo?.version ?? '—'}`
-  clearTimeout(updateLabelTimer)
-  els.updateBtn.textContent = t('about.check')
-  els.about.hidden = false
-  document.body.classList.add('about-open')
-  els.aboutClose.focus()
+  try {
+    settings = await window.api.getSettings()
+  } catch {
+    settings = null
+  }
+  els.settingsVersion.textContent = `v${appInfo?.version ?? '—'}`
+  clearTimeout(updateNoteTimer)
+  els.updateBtn.textContent = t('update.check')
+  els.updateBtn.disabled = false
+  renderUpdateNote('idle', appInfo?.version)
+  renderAutoLaunch(appInfo?.autoLaunch)
+  syncSettingsControls(document.documentElement.dataset.theme, state?.lang)
+  renderSettingsSheet()
+  els.settings.hidden = false
+  document.body.classList.add('sheet-open')
+  // Focus the card, not the close button: a focused X draws a focus ring on open.
+  document.querySelector('.sheet-card').focus({ preventScroll: true })
 }
 
-function closeAbout() {
-  els.about.hidden = true
-  document.body.classList.remove('about-open')
+function closeSettings() {
+  els.settings.hidden = true
+  document.body.classList.remove('sheet-open')
 }
 
 async function openExternal(url) {
@@ -895,35 +1021,38 @@ async function openExternal(url) {
   await window.api.openExternal(url).catch(() => null)
 }
 
-let updateLabelTimer = null
-
-/** Update checks report through the button label, so the panel needs no reserved status row. */
+/** Update checks report through the button label plus one line of status text. */
 async function checkUpdates() {
-  clearTimeout(updateLabelTimer)
-  els.updateBtn.textContent = t('about.checking')
+  clearTimeout(updateNoteTimer)
+  els.updateBtn.textContent = t('update.checking')
   els.updateBtn.disabled = true
+  renderUpdateNote('checking')
   try {
     const result = await window.api.checkUpdate()
     if (!result?.ok) {
-      els.updateBtn.textContent = t('about.failed')
+      els.updateBtn.textContent = t('update.failed')
+      renderUpdateNote('failed')
       return
     }
     if (result.hasUpdate) {
-      els.updateBtn.textContent = t('about.found')
+      els.updateBtn.textContent = t('update.found')
+      renderUpdateNote('found', result.latest)
       promptUpdate(result)
     } else {
-      els.updateBtn.textContent = t('about.latest')
+      els.updateBtn.textContent = t('update.latest')
+      renderUpdateNote('latest', result.latest || appInfo?.version)
     }
   } finally {
     els.updateBtn.disabled = false
-    updateLabelTimer = setTimeout(() => {
-      els.updateBtn.textContent = t('about.check')
-    }, 3000)
+    updateNoteTimer = setTimeout(() => {
+      els.updateBtn.textContent = t('update.check')
+      renderUpdateNote('idle', appInfo?.version)
+    }, 4000)
   }
 }
 
 async function promptUpdate(info) {
-  closeAbout()
+  closeSettings()
   const confirmed = await showModal({
     title: t('update.title'),
     lines: [
@@ -935,17 +1064,154 @@ async function promptUpdate(info) {
   if (confirmed) await openExternal(info.url || appInfo?.site)
 }
 
-els.aboutBtn.addEventListener('click', openAbout)
-els.aboutClose.addEventListener('click', closeAbout)
-els.about.addEventListener('click', (event) => {
-  if (event.target === els.about) closeAbout()
+els.settingsBtn.addEventListener('click', openSettings)
+els.settingsClose.addEventListener('click', closeSettings)
+els.settings.addEventListener('click', (event) => {
+  if (event.target === els.settings) closeSettings()
 })
-els.aboutEmail.addEventListener('click', () => openExternal(`mailto:${appInfo?.developer?.email || ''}`))
-els.aboutMartin.addEventListener('click', () => openExternal(appInfo?.developer?.github))
-els.aboutSponsor.addEventListener('click', () => openExternal(appInfo?.developer?.github))
-els.aboutGithub.addEventListener('click', () => openExternal(appInfo?.github))
-els.aboutSite.addEventListener('click', () => openExternal(appInfo?.site))
+els.devEmail.addEventListener('click', () => openExternal(`mailto:${appInfo?.developer?.email || ''}`))
+els.devName.addEventListener('click', () => openExternal(appInfo?.developer?.github))
+els.devGithub.addEventListener('click', () => openExternal(appInfo?.github))
+els.devSite.addEventListener('click', () => openExternal(appInfo?.site))
+els.sponsorBtn.addEventListener('click', () => openExternal(appInfo?.developer?.github))
 els.updateBtn.addEventListener('click', () => checkUpdates())
+
+els.themeSeg.addEventListener('click', (event) => {
+  const item = event.target.closest('.seg-item')
+  if (item) void applyTheme(item.dataset.value)
+})
+
+els.langSeg.addEventListener('click', (event) => {
+  const item = event.target.closest('.seg-item')
+  if (item) void switchLanguage(item.dataset.value)
+})
+
+/** Boolean settings: the switch flips optimistically, and reverts if the main process refuses. */
+function bindSwitch(button, key) {
+  button.addEventListener('click', async () => {
+    const next = button.dataset.on !== 'true'
+    setSwitch(button, next)
+    const result = await window.api.setSettings({ [key]: next }).catch(() => null)
+    if (result?.ok) {
+      settings = { ...(settings ?? {}), ...result.settings }
+      renderSettingsSheet()
+    } else {
+      setSwitch(button, !next)
+    }
+  })
+}
+
+bindSwitch(els.openInBrowser, 'openInBrowser')
+bindSwitch(els.telemetry, 'telemetry')
+bindSwitch(els.autoUpdateCheck, 'autoUpdateCheck')
+
+els.registrySeg.addEventListener('click', (event) => {
+  const item = event.target.closest('.seg-item')
+  if (item) void patchSettings({ npmRegistry: item.dataset.value })
+})
+
+/** Proxy: saved on Enter or on blur; an unparsable value is rejected and the field reverts. */
+async function commitProxy() {
+  if (!settings) return
+  const raw = els.proxyField.value
+  const result = await patchSettings({ proxy: raw })
+  if (!result) return
+  const stored = result.settings?.proxy ?? ''
+  const invalid = Boolean(String(raw).trim()) && !stored
+  els.proxyField.value = stored
+  els.proxyField.classList.toggle('is-invalid', invalid)
+  els.proxyNote.textContent = invalid ? t('sheet.proxyInvalid') : t('sheet.proxyHint')
+  els.proxyNote.classList.toggle('is-error', invalid)
+}
+
+/** Extra DSH arguments: the main process reports which tokens it refused. */
+async function commitArgs() {
+  if (!settings) return
+  const result = await patchSettings({ dshArgs: els.argsField.value })
+  if (!result) return
+  const dropped = result.dropped ?? []
+  els.argsNote.textContent = dropped.length
+    ? t('sheet.argsDropped', { args: [...new Set(dropped)].join(' ') })
+    : t('sheet.argsHint')
+  els.argsNote.classList.toggle('is-error', dropped.length > 0)
+}
+
+/** Port: only editable while DSH is stopped, and it takes effect on the next start. */
+async function commitPort() {
+  if (!settings || els.portField.disabled) return
+  const port = Number(String(els.portField.value).trim())
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    els.portField.classList.add('is-invalid')
+    els.portNote.classList.add('is-error')
+    els.portNote.textContent = t('sheet.portInvalid')
+    els.portField.value = String(settings.port ?? 3080)
+    return
+  }
+  if (port === settings.port) {
+    els.portField.classList.remove('is-invalid')
+    return
+  }
+  const result = await window.api.setPort(port).catch(() => null)
+  if (!result?.ok) {
+    els.portField.classList.add('is-invalid')
+    els.portNote.classList.add('is-error')
+    els.portNote.textContent = result?.message || t('sheet.saveFailed')
+    els.portField.value = String(settings.port ?? 3080)
+    return
+  }
+  settings = { ...settings, port: result.port ?? port }
+  els.portField.value = String(settings.port)
+  els.portField.classList.remove('is-invalid')
+  els.portNote.classList.remove('is-error')
+  els.portNote.textContent = t('sheet.portSaved', { port: settings.port })
+  try {
+    render(await window.api.getState())
+  } catch {
+    // Completed by the status event.
+  }
+}
+
+/** Enter saves, Escape restores the stored value, blur saves too — one shared behaviour. */
+function bindField(input, commit) {
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      void commit()
+    } else if (event.key === 'Escape') {
+      event.preventDefault()
+      renderSettingsSheet()
+      input.blur()
+    }
+  })
+  input.addEventListener('blur', () => {
+    void commit()
+  })
+}
+
+bindField(els.portField, commitPort)
+bindField(els.proxyField, commitProxy)
+bindField(els.argsField, commitArgs)
+
+/** Turning the switch: the main process owns the OS login item, the button only reflects the result. */
+els.autoLaunch.addEventListener('click', async () => {
+  if (els.autoLaunch.disabled) return
+  const next = els.autoLaunch.dataset.on !== 'true'
+  els.autoLaunch.disabled = true
+  try {
+    const result = await window.api.setAutoLaunch(next)
+    if (result?.ok) {
+      appInfo = { ...(appInfo ?? {}), autoLaunch: { supported: result.supported, enabled: result.enabled } }
+      renderAutoLaunch(appInfo.autoLaunch)
+    } else {
+      els.autoLaunchNote.textContent = t('sheet.autoLaunchFailed')
+    }
+  } catch {
+    els.autoLaunchNote.textContent = t('sheet.autoLaunchFailed')
+  } finally {
+    const supported = Boolean(appInfo?.autoLaunch?.supported)
+    els.autoLaunch.disabled = !supported
+  }
+})
 
 window.api.onEvent((payload) => {
   if (payload.type === 'log') appendLine(payload.line)
@@ -994,6 +1260,10 @@ async function applyLanguage(lang) {
   document.documentElement.lang = window.i18n.lang === 'en' ? 'en' : 'zh-CN'
   applyStaticTexts()
   if (state) render(state)
+  syncHeaderButtons(document.documentElement.dataset.theme, window.i18n.lang)
+  syncSettingsControls(document.documentElement.dataset.theme, window.i18n.lang)
+  renderSettingsSheet()
+  renderUpdateNote()
   renderVersionValue()
   renderVersionOptions()
   if (flowMode) {
