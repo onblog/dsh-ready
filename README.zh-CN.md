@@ -48,9 +48,9 @@ DeepSeek Harness（`dsh`）是一个命令行工具。对不常待在终端里�
 
 | 平台 | 安装包 | 说明 |
 | --- | --- | --- |
-| macOS Apple Silicon | `dsh-ready-1.0.6-arm64.dmg` | M1 / M2 / M3 / M4 |
-| macOS Intel | `dsh-ready-1.0.6-x64.dmg` | Intel 芯片的 Mac |
-| Windows x64 | `dsh-ready-1.0.6-x64.exe` | Windows 10 / 11 |
+| macOS Apple Silicon | `dsh-ready-1.0.7-arm64.dmg` | M1 / M2 / M3 / M4 |
+| macOS Intel | `dsh-ready-1.0.7-x64.dmg` | Intel 芯片的 Mac |
+| Windows x64 | `dsh-ready-1.0.7-x64.exe` | Windows 10 / 11 |
 
 到 **[dsh.wordtk.com](https://dsh.wordtk.com)** 下载：安装包放在 R2，官网永远提供最新版本。
 
