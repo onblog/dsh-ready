@@ -50,6 +50,7 @@ const els = {
   aboutClose: $('aboutClose'),
   aboutVersion: $('aboutVersion'),
   aboutEmail: $('aboutEmail'),
+  aboutMartin: $('aboutMartin'),
   aboutGithub: $('aboutGithub'),
   aboutSite: $('aboutSite'),
   updateBtn: $('updateBtn'),
@@ -931,6 +932,7 @@ els.about.addEventListener('click', (event) => {
   if (event.target === els.about) closeAbout()
 })
 els.aboutEmail.addEventListener('click', () => openExternal(`mailto:${appInfo?.developer?.email || ''}`))
+els.aboutMartin.addEventListener('click', () => openExternal(appInfo?.developer?.github))
 els.aboutGithub.addEventListener('click', () => openExternal(appInfo?.github))
 els.aboutSite.addEventListener('click', () => openExternal(appInfo?.site))
 els.updateBtn.addEventListener('click', () => checkUpdates())

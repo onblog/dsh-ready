@@ -14,7 +14,7 @@ import { compareVersions } from './semver.mjs'
 
 export const SITE_URL = 'https://dsh.wordtk.com'
 export const GITHUB_URL = 'https://github.com/onblog/dsh-ready'
-export const DEVELOPER = { name: 'Martin', email: 'hello@wordtk.com' }
+export const DEVELOPER = { name: 'Martin', email: 'hello@wordtk.com', github: 'https://github.com/onblog' }
 
 const RELEASE_URL = `${SITE_URL}/api/release`
 const PING_URL = `${SITE_URL}/api/ping`
