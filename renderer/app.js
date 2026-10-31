@@ -54,7 +54,6 @@ const els = {
   aboutGithub: $('aboutGithub'),
   aboutSite: $('aboutSite'),
   updateBtn: $('updateBtn'),
-  updateStatus: $('updateStatus'),
   aboutSponsor: $('aboutSponsor'),
 }
 
@@ -874,13 +873,14 @@ let appInfo = null
 
 async function openAbout() {
   closeModal(false)
-  els.updateStatus.textContent = ''
   try {
     appInfo = appInfo || (await window.api.getAppInfo())
   } catch {
     appInfo = null
   }
   els.aboutVersion.textContent = `v${appInfo?.version ?? '—'}`
+  clearTimeout(updateLabelTimer)
+  els.updateBtn.textContent = t('about.check')
   els.about.hidden = false
   els.aboutClose.focus()
 }
@@ -894,23 +894,30 @@ async function openExternal(url) {
   await window.api.openExternal(url).catch(() => null)
 }
 
-async function checkUpdates({ silent = false } = {}) {
-  els.updateStatus.textContent = t('about.checking')
+let updateLabelTimer = null
+
+/** Update checks report through the button label, so the panel needs no reserved status row. */
+async function checkUpdates() {
+  clearTimeout(updateLabelTimer)
+  els.updateBtn.textContent = t('about.checking')
   els.updateBtn.disabled = true
   try {
     const result = await window.api.checkUpdate()
     if (!result?.ok) {
-      els.updateStatus.textContent = t('about.failed')
+      els.updateBtn.textContent = t('about.failed')
       return
     }
     if (result.hasUpdate) {
-      els.updateStatus.textContent = t('about.found', { version: result.latest })
-      if (!silent) promptUpdate(result)
+      els.updateBtn.textContent = t('about.found')
+      promptUpdate(result)
     } else {
-      els.updateStatus.textContent = t('about.latest')
+      els.updateBtn.textContent = t('about.latest')
     }
   } finally {
     els.updateBtn.disabled = false
+    updateLabelTimer = setTimeout(() => {
+      els.updateBtn.textContent = t('about.check')
+    }, 3000)
   }
 }
 
