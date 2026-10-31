@@ -674,7 +674,7 @@ function showModal({ title, lines = [], confirmText, cancelText, danger = false 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !els.about.hidden) {
     event.preventDefault()
-    els.about.hidden = true
+    closeAbout()
   }
 })
 
@@ -882,11 +882,13 @@ async function openAbout() {
   clearTimeout(updateLabelTimer)
   els.updateBtn.textContent = t('about.check')
   els.about.hidden = false
+  document.body.classList.add('about-open')
   els.aboutClose.focus()
 }
 
 function closeAbout() {
   els.about.hidden = true
+  document.body.classList.remove('about-open')
 }
 
 async function openExternal(url) {
