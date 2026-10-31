@@ -9,7 +9,7 @@
   "repository": "https://github.com/onblog/dsh-ready",
   "homepage": "https://github.com/onblog/dsh-ready",
   "scripts": {
-    "start": "electron .",
+    "start": "node scripts/write-site-config.cjs && electron .",
     "dist": "electron-builder --config electron-builder.config.mjs",
     "dist:mac": "electron-builder --mac dmg --config electron-builder.config.mjs",
     "dist:mac:arm64": "electron-builder --mac dmg --arm64 --config electron-builder.config.mjs",
