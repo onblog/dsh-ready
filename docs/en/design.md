@@ -225,8 +225,6 @@ macOS Apple Silicon (arm64), macOS Intel (x64) and Windows (x64).
   `src/index.js`.
 - **One theme.** The site lives in the whale-blue palette and has no light/dark
   toggle: a second palette dilutes the "one lamp in the deep sea" look.
-- **Sponsor button.** The footer adds a "Buy me a coffee" pill after the navigation
-  links; it opens the developer's GitHub profile (github.com/onblog).
 - **Downloads.** `/api/release` exposes the R2 manifest (version, sizes, URLs);
   `/api/download?arch=` streams the object with Range support so the browser can
   fetch 8 chunks in parallel and show real progress.

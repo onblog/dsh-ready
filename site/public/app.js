@@ -131,7 +131,6 @@ const messages = {
     'footer.docs': '文档',
     'footer.stats': '使用数据',
     'footer.issues': '反馈',
-    'footer.sponsor': '请我喝杯咖啡',
     'footer.legal':
       '第三方项目，与 DeepSeek 官方无关。代码以 AGPL-3.0-only 授权，商业用途需另行授权。',
   },
@@ -258,7 +257,6 @@ const messages = {
     'footer.docs': 'Docs',
     'footer.stats': 'Usage data',
     'footer.issues': 'Issues',
-    'footer.sponsor': 'Buy me a coffee',
     'footer.legal':
       'A third-party project, not affiliated with DeepSeek. Licensed AGPL-3.0-only; commercial use requires a separate licence.',
   },

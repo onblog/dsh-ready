@@ -55,6 +55,7 @@ const els = {
   aboutSite: $('aboutSite'),
   updateBtn: $('updateBtn'),
   updateStatus: $('updateStatus'),
+  aboutSponsor: $('aboutSponsor'),
 }
 
 const BUSY_STATUS = new Set(['starting', 'stopping', 'installing', 'upgrading', 'uninstalling', 'takingover'])
@@ -933,6 +934,7 @@ els.about.addEventListener('click', (event) => {
 })
 els.aboutEmail.addEventListener('click', () => openExternal(`mailto:${appInfo?.developer?.email || ''}`))
 els.aboutMartin.addEventListener('click', () => openExternal(appInfo?.developer?.github))
+els.aboutSponsor.addEventListener('click', () => openExternal(appInfo?.developer?.github))
 els.aboutGithub.addEventListener('click', () => openExternal(appInfo?.github))
 els.aboutSite.addEventListener('click', () => openExternal(appInfo?.site))
 els.updateBtn.addEventListener('click', () => checkUpdates())

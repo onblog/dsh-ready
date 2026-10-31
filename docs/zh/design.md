@@ -224,8 +224,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 - 「检测更新」手动调用 `app:check-update`；应用启动时另有每天最多一次的自动检查。
   两者都只请求官网 `/api/release`，比较版本号，绝不上报设备信息。
 - 发现新版本时弹应用内确认框，确认后用系统浏览器打开官网下载页。
-- 官网页脚在 GitHub / 文档 / 使用数据 / 反馈之后新增「请我喝杯咖啡」按钮，作为赞助入口，
-  点击跳转开发者 GitHub 主页（github.com/onblog）。
+- 「关于」面板底部提供「请我喝杯咖啡」打赏入口，点击打开开发者 GitHub 主页（github.com/onblog）。
 - 启动上报（`/api/ping`）只含随机会话级设备 ID 与版本号；设
   `DSH_READY_NO_TELEMETRY=1` 可同时关闭上报与更新检查。
 

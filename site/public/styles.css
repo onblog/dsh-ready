@@ -925,34 +925,6 @@ section {
   color: #fff;
 }
 
-.footer__sponsor {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 16px;
-  margin: 0 0 20px;
-  border: 1px solid rgba(255, 212, 121, 0.42);
-  border-radius: 999px;
-  background: rgba(255, 212, 121, 0.1);
-  color: var(--gold);
-  font-size: 13.5px;
-  font-weight: 600;
-  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
-}
-
-.footer__sponsor svg {
-  width: 15px;
-  height: 15px;
-  flex: none;
-}
-
-.footer__sponsor:hover {
-  border-color: rgba(255, 212, 121, 0.72);
-  background: rgba(255, 212, 121, 0.18);
-  color: var(--gold);
-  transform: translateY(-1px);
-}
-
 .footer__legal {
   margin: 0;
   max-width: 78ch;

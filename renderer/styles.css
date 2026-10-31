@@ -21,6 +21,11 @@
   --primary-ink: #f7fafc;
   --primary-hover: #24323f;
   --shadow: 0 10px 26px rgba(21, 32, 43, 0.12);
+  --sponsor-ink: #8a5a12;
+  --sponsor-bg: rgba(154, 107, 31, 0.08);
+  --sponsor-bg-strong: rgba(154, 107, 31, 0.14);
+  --sponsor-line: rgba(154, 107, 31, 0.3);
+  --sponsor-line-strong: rgba(154, 107, 31, 0.55);
 }
 
 :root[data-theme='dark'] {
@@ -41,6 +46,11 @@
   --primary-ink: #0c1218;
   --primary-hover: #f4f9fd;
   --shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
+  --sponsor-ink: #f0c070;
+  --sponsor-bg: rgba(255, 212, 121, 0.1);
+  --sponsor-bg-strong: rgba(255, 212, 121, 0.18);
+  --sponsor-line: rgba(255, 212, 121, 0.38);
+  --sponsor-line-strong: rgba(255, 212, 121, 0.65);
 }
 
 * {
@@ -1188,6 +1198,41 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
   line-height: 1.45;
   color: var(--ink-3);
   text-align: center;
+}
+
+.about-support {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.about-sponsor {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 16px;
+  border: 1px solid var(--sponsor-line);
+  border-radius: 999px;
+  background: var(--sponsor-bg);
+  color: var(--sponsor-ink);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.about-sponsor svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.about-sponsor:hover {
+  border-color: var(--sponsor-line-strong);
+  background: var(--sponsor-bg-strong);
+  transform: translateY(-1px);
 }
 
 .about-license {
