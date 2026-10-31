@@ -38,21 +38,37 @@ export function isValidPort(port) {
 }
 
 /**
- * Accept `host:port` or `http(s)://host:port`; anything else (including a socks:// URL,
- * which npm cannot use) is treated as "no proxy".
+ * Normalise a proxy address, accepting `host:port` or `http(s)://host:port`.
+ * Returns '' for anything unusable: a non-http(s) scheme (npm cannot use socks via
+ * environment variables), a malformed URL, or a single-label host without a port.
+ * That last rule exists because a half-typed value ("http") is a valid URL whose host
+ * is `http`, and persisting it would hand every child process a dead proxy.
  */
 export function normalizeProxy(value) {
   const raw = String(value ?? '').trim()
   if (!raw) return ''
   const hasScheme = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(raw)
   if (hasScheme && !/^https?:\/\//i.test(raw)) return ''
+
+  let parsed
   try {
-    const parsed = new URL(hasScheme ? raw : `http://${raw}`)
-    if (!parsed.hostname) return ''
-    return `${parsed.protocol}//${parsed.host}`
+    parsed = new URL(hasScheme ? raw : `http://${raw}`)
   } catch {
     return ''
   }
+
+  const host = parsed.hostname
+  if (!host) return ''
+  if (parsed.port) {
+    const port = Number(parsed.port)
+    if (!Number.isInteger(port) || port < 1 || port > 65535) return ''
+  }
+  const isIpv6 = host.startsWith('[') || host.includes(':')
+  const isIpv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(host)
+  const isNamed = host === 'localhost' || host.includes('.')
+  // A bare label with no port is a half-typed value, not a proxy.
+  if (!isIpv6 && !isIpv4 && !isNamed && !parsed.port) return ''
+  return `${parsed.protocol}//${parsed.host}`
 }
 
 /** Child-process proxy variables; empty object when no proxy is configured. */

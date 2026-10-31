@@ -400,7 +400,17 @@ ipcMain.handle('settings:set', async (_event, patch) => {
     if (typeof patch.telemetry === 'boolean') next.telemetry = patch.telemetry
     if (typeof patch.autoUpdateCheck === 'boolean') next.autoUpdateCheck = patch.autoUpdateCheck
     if (NPM_REGISTRIES.includes(patch.npmRegistry)) next.npmRegistry = patch.npmRegistry
-    if (typeof patch.proxy === 'string') next.proxy = normalizeProxy(patch.proxy)
+    if (typeof patch.proxy === 'string') {
+      const raw = patch.proxy.trim()
+      if (!raw) {
+        next.proxy = '' // An empty field is an explicit "no proxy".
+      } else {
+        const normalized = normalizeProxy(raw)
+        // Invalid input never overwrites a working proxy: report it and keep the old value.
+        if (!normalized) return { ok: false, invalid: 'proxy', settings: publicSettings() }
+        next.proxy = normalized
+      }
+    }
     if (typeof patch.dshArgs === 'string') {
       next.dshArgs = patch.dshArgs.trim()
       dropped.push(...parseDshArgs(patch.dshArgs).dropped)

@@ -52,9 +52,9 @@ It starts the official web UI in your system browser.
 
 | Platform | Installer | Notes |
 | --- | --- | --- |
-| macOS Apple Silicon | `dsh-ready-1.0.10-arm64.dmg` | M1 / M2 / M3 / M4 |
-| macOS Intel | `dsh-ready-1.0.10-x64.dmg` | Intel-based Macs |
-| Windows x64 | `dsh-ready-1.0.10-x64.exe` | Windows 10 / 11 |
+| macOS Apple Silicon | `dsh-ready-1.0.11-arm64.dmg` | M1 / M2 / M3 / M4 |
+| macOS Intel | `dsh-ready-1.0.11-x64.dmg` | Intel-based Macs |
+| Windows x64 | `dsh-ready-1.0.11-x64.exe` | Windows 10 / 11 |
 
 Grab them from **[dsh.wordtk.com](https://dsh.wordtk.com)** — the installers live on R2
 and the site always serves the newest version.

@@ -266,7 +266,13 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 - npm 源：`auto` 保留原有的双源测速；`official` / `mirror` 直接锁定，跳过测速。
   切换后清空源缓存并重新拉取最新版本。
 - HTTP(S) 代理：只写进 npm 与 DSH 子进程的 `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` / `NO_PROXY`，
-  应用自身的版本查询与更新检查仍然直连（设置项下方明写这句）；格式非法时拒绝保存并高亮。
+  应用自身的版本查询与更新检查仍然直连（设置项下方明写这句）。
+- 代理地址归一化规则：接受 `host:port` 与 `http(s)://host:port`；非 http(s) 协议（如 socks）一律拒绝；
+  单标签主机名（`http`、`proxy` 这类多半是输入到一半的值）必须显式带端口才算合法，IPv4 / 含点域名 /
+  localhost / IPv6 允许省略端口；端口需在 1–65535。
+- 非法代理**绝不覆盖已有设置**：`settings:set` 返回 `ok:false, invalid:'proxy'`，界面高亮并保留用户输入，
+  不会像早期实现那样归一化成空串把已配代理悄悄清掉。
+- 代理对运行中的 DSH 不会热生效（只在启动子进程时注入），保存后行内提示「重启 DSH 后生效」。
 - DSH 附加启动参数：空格分词后逐 token 过白名单（`--flag` / `--flag=value` / flag 后的值 token），
   绝不过 shell；`--port` / `-p` 一律丢弃（端口由设置项统一管理），被丢弃的 token 会显示在行内提示里。
 - 匿名启动上报与自动检查更新各有一个开关：上报开关只管 `/api/ping`；自动更新开关只管每天一次的

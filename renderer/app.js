@@ -963,10 +963,9 @@ function parseArgsPreview(text) {
 /** Persist one patch and repaint; returns the main-process answer so callers can flag errors. */
 async function patchSettings(patch) {
   const result = await window.api.setSettings(patch).catch(() => null)
-  if (result?.ok) {
-    settings = { ...(settings ?? {}), ...result.settings }
-    renderSettingsSheet()
-  }
+  // A refused write still answers with the stored settings, so the sheet never drifts.
+  if (result?.settings) settings = { ...(settings ?? {}), ...result.settings }
+  renderSettingsSheet()
   return result
 }
 
@@ -1110,18 +1109,24 @@ els.registrySeg.addEventListener('click', (event) => {
   if (item) void patchSettings({ npmRegistry: item.dataset.value })
 })
 
-/** Proxy: saved on Enter or on blur; an unparsable value is rejected and the field reverts. */
+/**
+ * Proxy: saved on Enter or on blur. An unparsable value is refused without touching the
+ * stored proxy, and the field keeps what the user typed so it can be corrected in place.
+ */
 async function commitProxy() {
   if (!settings) return
   const raw = els.proxyField.value
   const result = await patchSettings({ proxy: raw })
   if (!result) return
-  const stored = result.settings?.proxy ?? ''
-  const invalid = Boolean(String(raw).trim()) && !stored
-  els.proxyField.value = stored
+  const invalid = result.ok === false && result.invalid === 'proxy'
   els.proxyField.classList.toggle('is-invalid', invalid)
-  els.proxyNote.textContent = invalid ? t('sheet.proxyInvalid') : t('sheet.proxyHint')
   els.proxyNote.classList.toggle('is-error', invalid)
+  if (invalid) {
+    els.proxyNote.textContent = t('sheet.proxyInvalid')
+    return
+  }
+  const running = state?.status === 'running' || state?.status === 'external'
+  els.proxyNote.textContent = running && settings.proxy ? t('sheet.proxyRestart') : t('sheet.proxyHint')
 }
 
 /** Extra DSH arguments: the main process reports which tokens it refused. */

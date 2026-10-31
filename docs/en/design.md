@@ -215,7 +215,14 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
   skip the test. Switching clears the registry cache and re-reads the latest version.
 - HTTP(S) proxy: written only into the npm / DSH child environment (`HTTP_PROXY`, `HTTPS_PROXY`,
   `ALL_PROXY`, `NO_PROXY`); the app's own version and update requests stay direct (stated in the UI).
-  An unparsable value is rejected and highlighted.
+- Proxy normalisation: `host:port` and `http(s)://host:port` are accepted; any other scheme (socks)
+  is refused; a single-label host (`http`, `proxy` — usually a half-typed value) must carry an
+  explicit port, while IPv4 / dotted names / localhost / IPv6 may omit it; the port must be 1–65535.
+- An invalid proxy never overwrites a working one: `settings:set` answers
+  `ok:false, invalid:'proxy'`, the field is highlighted and the typed text is kept, instead of the
+  earlier behaviour that normalised it to an empty string and silently cleared the stored proxy.
+- The proxy does not hot-apply to a running DSH (it is injected when the child is spawned), so the
+  row says "restart DSH to apply" after saving.
 - Extra DSH arguments: split on whitespace, every token checked against a flag/value whitelist and
   never passed to a shell; `--port` / `-p` are dropped because the port setting owns that, and the
   dropped tokens are shown inline.
