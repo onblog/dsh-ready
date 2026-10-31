@@ -1,7 +1,7 @@
 {
   "name": "dsh-ready",
   "productName": "DSH 就位",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "description": "DeepSeek Harness 的桌面启动器：一键安装、启动、停止、日志、升级、卸载。A tiny desktop launcher for DeepSeek Harness.",
   "type": "module",
