@@ -14,7 +14,7 @@ export const LOG_DIR = join(USER_DATA, 'logs')
 export const LOG_FILE = join(LOG_DIR, 'dsh.log')
 export const SETTINGS_FILE = join(USER_DATA, 'settings.json')
 
-const DEFAULT_SETTINGS = { theme: 'system', lang: 'system', port: 3080 }
+const DEFAULT_SETTINGS = { theme: 'dark', lang: 'system', port: 3080 }
 
 export function isValidPort(port) {
   return Number.isInteger(port) && port >= 1 && port <= 65535
@@ -28,9 +28,12 @@ export function readSettings() {
     stored = {}
   }
   const port = Number(stored.port)
+  // Themes are an explicit binary choice: any legacy "system" value or unknown input falls back to dark.
+  const theme = stored.theme === 'light' || stored.theme === 'dark' ? stored.theme : DEFAULT_SETTINGS.theme
   return {
     ...DEFAULT_SETTINGS,
     ...stored,
+    theme,
     port: isValidPort(port) ? port : DEFAULT_SETTINGS.port,
   }
 }

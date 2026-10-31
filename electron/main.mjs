@@ -22,7 +22,7 @@ import { compareVersions, parseVersion } from './semver.mjs'
 import { mainT } from './i18n.mjs'
 import { reportLaunch, checkUpdate, canOpenExternally, SITE_URL, GITHUB_URL, DEVELOPER } from './telemetry.mjs'
 
-const THEMES = ['system', 'light', 'dark']
+const THEMES = ['light', 'dark']
 const LANGS = ['zh', 'en']
 
 /** Language: an explicit user choice wins, otherwise infer from the system locale (zh always means Simplified). */
@@ -85,7 +85,7 @@ async function buildState() {
     runtime: runtime.runtime,
     nodeVersion: runtime.nodeVersion,
     npmVersion: runtime.npmVersion,
-    theme: THEMES.includes(readSettings().theme) ? readSettings().theme : 'system',
+    theme: THEMES.includes(readSettings().theme) ? readSettings().theme : 'dark',
     lang: resolveLang(),
     busy: task !== null,
   }
@@ -120,7 +120,9 @@ async function refreshLatest(force = false) {
 }
 
 function createWindow() {
-  nativeTheme.themeSource = THEMES.includes(readSettings().theme) ? readSettings().theme : 'system'
+  const savedTheme = readSettings().theme
+  const theme = THEMES.includes(savedTheme) ? savedTheme : 'dark'
+  nativeTheme.themeSource = theme
   mainWindow = new BrowserWindow({
     width: 468,
     height: 520,
@@ -131,7 +133,7 @@ function createWindow() {
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 19 },
     title: 'DSH 就位',
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#121211' : '#f7f6f3',
+    backgroundColor: theme === 'dark' ? '#121211' : '#f7f6f3',
     show: false,
     webPreferences: {
       preload: join(import.meta.dirname, 'preload.cjs'),
@@ -394,7 +396,7 @@ ipcMain.handle('lang:set', async (_event, lang) => {
 })
 
 ipcMain.handle('theme:set', async (_event, theme) => {
-  const next = THEMES.includes(theme) ? theme : 'system'
+  const next = THEMES.includes(theme) ? theme : 'dark'
   writeSettings({ theme: next })
   nativeTheme.themeSource = next
   return { ok: true, theme: next }

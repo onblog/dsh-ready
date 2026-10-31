@@ -45,7 +45,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 | pid | dsh 进程号 | 正整数或 null |
 | runtime | 运行时来源 | system / missing |
 | nodeVersion | Node 版本 | 如 v22.20.0 或 null |
-| theme | 主题 | system / light / dark |
+| theme | 主题（不跟随系统，默认 dark） | dark / light |
 | lang | 界面语言（已解析） | zh / en |
 | busy | 是否在执行安装类操作 | true / false |
 
@@ -171,9 +171,9 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 | 字段 | 含义 | 取值范围 |
 | --- | --- | --- |
-| theme | 主题模式 | system / light / dark |
+| theme | 主题模式 | dark / light（默认 dark） |
 
-响应 `{ ok, theme }`，同时持久化到应用数据目录 `settings.json`。
+响应 `{ ok, theme }`，同时持久化到应用数据目录 `settings.json`。仅接受 `light` / `dark`，其它值（含历史遗留的 `system`）一律按 `dark` 处理。
 
 ### 事件 `dsh:event`
 
@@ -190,7 +190,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 - 主进程按优先级解析：`settings.json` 里显式选择的 `lang` → `app.getLocale()` 的区域判断；结果放进 `state.lang`，渲染层据此加载文案。
 - 渲染层文案集中在 `renderer/i18n.js`（`t(key, params)`），主进程返回的状态消息集中在 `electron/i18n.mjs`（`mainT`），两边 key 命名保持一致。
 - 确认框、提示框全部由渲染层自绘（`showModal`），不再使用 Electron 原生 `dialog`；Cmd+Q 与菜单退出也走同一个确认框。
-- 头部按钮在主题按钮左侧，显示当前语言（`中文` / `EN`），点击即切换并持久化到 `settings.json`。
+- 语言按钮固定在最左侧，显示当前语言（`中文` / `EN`），点击即切换并持久化到 `settings.json`。
 - 插件升级检查的结构化结果（`plan.plugins[].detail`）由渲染层按当前语言拼文案，主进程不再返回写死的中文原因。
 - 日志与命令保持原文（dsh / npm / pnpm 的原始输出），不参与翻译。
 
@@ -215,7 +215,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 ## 关于与更新
 
-- 头部按钮顺序固定为：主题（跟随系统/浅色/深色）→ 语言（中文/EN）→ 关于 → 退出。
+- 头部按钮顺序固定为：语言（中文/EN）→ 主题（浅色/深色）→ 关于 → 退出；主题只有浅色与深色两态，不跟随系统。
 - 「关于」是应用内自绘面板：应用图标与版本、开发者 Martin、邮箱 hello@wordtk.com、
   GitHub 仓库地址、官网地址；邮箱与链接都通过主进程的 `app:open-external` 打开，
   只允许官网、仓库与这个邮箱，避免任意 URL 被利用。

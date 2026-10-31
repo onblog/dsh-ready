@@ -84,7 +84,7 @@ No request payload. Response fields:
 | pid | DSH process id | positive integer or null |
 | runtime | runtime source | system / missing |
 | nodeVersion | Node version | e.g. v22.20.0 or null |
-| theme | theme mode | system / light / dark |
+| theme | theme mode (never follows the OS) | dark / light |
 | lang | resolved UI language | zh / en |
 | busy | install-class operation in progress | true / false |
 
@@ -128,7 +128,8 @@ upgrade in that order.
 `port:set` takes `{ port }` and is refused while running; the new port is persisted to
 `settings.json`. `app:quit` confirms, stops a managed DSH and quits.
 `lang:set` takes `{ lang }` and returns the resolved language; `theme:set` takes
-`{ theme }` and persists it.
+`{ theme }` and persists it. Only `light` / `dark` are accepted; any other value
+(including a legacy `system`) falls back to `dark`.
 
 ### Event `dsh:event`
 
@@ -144,7 +145,7 @@ as simplified).
 - Main-process messages live in `electron/i18n.mjs` (`mainT`) with the same `msg.*`
   keys as the renderer, so both sides stay in sync.
 - Every confirmation and prompt is drawn in-app (`showModal`); no native `dialog`.
-- The language button sits left of the theme button and shows `中文` / `EN`.
+- The language button is the leftmost header action and shows `中文` / `EN`.
 - Structured upgrade results (`plan.plugins[].detail`) are formatted by the renderer
   in the current language; the main process returns no baked-in Chinese reasons.
 - Console output and commands stay verbatim (dsh / npm / pnpm output is not translated).

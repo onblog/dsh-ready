@@ -43,28 +43,6 @@
   --shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root[data-theme='system'] {
-    --bg: #0c1218;
-    --panel: #131b22;
-    --deep: #080d12;
-    --line: #1f2a33;
-    --line-strong: #2f3d49;
-    --ink: #e4edf4;
-    --ink-2: #97a6b3;
-    --ink-3: #6b7a88;
-    --accent: #79b6d6;
-    --accent-soft: rgba(121, 182, 214, 0.13);
-    --ok: #6fbf9e;
-    --warn: #d3a961;
-    --danger: #d98878;
-    --primary-bg: #e4edf4;
-    --primary-ink: #0c1218;
-    --primary-hover: #f4f9fd;
-            --shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
-  }
-}
-
 * {
   box-sizing: border-box;
   margin: 0;

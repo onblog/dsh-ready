@@ -57,7 +57,7 @@ const els = {
 }
 
 const BUSY_STATUS = new Set(['starting', 'stopping', 'installing', 'upgrading', 'uninstalling', 'takingover'])
-const THEMES = ['system', 'light', 'dark']
+const THEMES = ['light', 'dark']
 const LANGS = ['zh', 'en']
 
 /* ---------- Text ---------- */
@@ -76,10 +76,10 @@ function statusText(status) {
 }
 
 function themeLabel(theme) {
-  return t(`theme.${THEME_KEY[theme] ?? 'system'}`)
+  return t(`theme.${THEME_KEY[theme] ?? 'dark'}`)
 }
 
-const THEME_KEY = { system: 'system', light: 'light', dark: 'dark' }
+const THEME_KEY = { light: 'light', dark: 'dark' }
 
 let state = null
 let versions = []
@@ -619,7 +619,7 @@ function render(next) {
     : t('node.none')
   els.runtimeInfo.textContent = t(`runtime.${next.runtime === 'system' ? 'system' : 'missing'}`)
 
-  document.documentElement.dataset.theme = THEMES.includes(next.theme) ? next.theme : 'system'
+  document.documentElement.dataset.theme = THEMES.includes(next.theme) ? next.theme : 'dark'
   els.themeBtn.textContent = themeLabel(next.theme)
   els.themeBtn.setAttribute('aria-label', t('theme.aria'))
   els.langBtn.textContent = next.lang === 'en' ? '中文' : 'EN'
@@ -840,7 +840,7 @@ els.portInput.addEventListener('blur', () => {
 })
 
 els.themeBtn.addEventListener('click', async () => {
-  const current = document.documentElement.dataset.theme || 'system'
+  const current = document.documentElement.dataset.theme || 'dark'
   const next = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length]
   document.documentElement.dataset.theme = next
   els.themeBtn.textContent = themeLabel(next)

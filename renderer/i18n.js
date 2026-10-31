@@ -4,7 +4,6 @@
     zh: {
       'app.title': 'DSH 就位',
       'app.subtitle': 'dsh-ready',
-      'theme.system': '跟随系统',
       'theme.light': '浅色',
       'theme.dark': '深色',
       'theme.aria': '切换主题',
@@ -171,7 +170,6 @@
     en: {
       'app.title': 'DSH Ready',
       'app.subtitle': 'dsh-ready',
-      'theme.system': 'System',
       'theme.light': 'Light',
       'theme.dark': 'Dark',
       'theme.aria': 'Switch theme',
