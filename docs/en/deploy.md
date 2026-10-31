@@ -34,11 +34,24 @@ SITE_URL=https://dsh.wordtk.com npm run deploy
 placeholder with the real origin and generating `sitemap.xml` / `robots.txt`), then
 `wrangler deploy`.
 
-The custom domain lives in `wrangler.jsonc` under `routes` (`custom_domain: true`);
-`wrangler deploy` keeps the DNS record and certificate in sync. `workers_dev` and
-`preview_urls` are both false, so the site is only reachable on its domain.
+The custom domain is **not** declared in `wrangler.jsonc`: the live origin must not be
+hardcoded in the repository. Bind it once in Cloudflare Dashboard → Workers & Pages →
+`dsh-ready` → Settings → Domains & Routes; `wrangler deploy` leaves that binding as it is.
+`workers_dev` and `preview_urls` are both false, so the site is only reachable on its domain.
 
 ## Release process (desktop + site)
+
+Before packaging the desktop app, put a `.env` in the repo root (already git-ignored) with
+these two variables. `electron-builder`'s `beforeBuild` runs
+`scripts/write-site-config.cjs`, which writes `electron/site.generated.json` into the bundle:
+
+```sh
+SITE_URL=https://YOUR_DOMAIN
+CONTACT_EMAIL=YOUR_EMAIL
+```
+
+Building without them still works: launch reporting and the update check stay off, and the
+contact entry in the About sheet is hidden.
 
 ```sh
 # 1. bump version in package.json

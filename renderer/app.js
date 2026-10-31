@@ -50,6 +50,7 @@ const els = {
   settingsVersion: $('settingsVersion'),
   devName: $('devName'),
   devEmail: $('devEmail'),
+  devEmailText: $('devEmailText'),
   devGithub: $('devGithub'),
   devSite: $('devSite'),
   autoLaunch: $('autoLaunch'),
@@ -997,6 +998,13 @@ async function openSettings() {
     settings = null
   }
   els.settingsVersion.textContent = `v${appInfo?.version ?? '—'}`
+  // The contact address is baked in at packaging time (CONTACT_EMAIL). Hide the entry
+  // — and the separator before it — when this build shipped without one.
+  const contactEmail = appInfo?.developer?.email || ''
+  els.devEmailText.textContent = contactEmail
+  els.devEmail.hidden = !contactEmail
+  const emailSeparator = els.devEmail.previousElementSibling
+  if (emailSeparator?.classList.contains('dev-sep')) emailSeparator.hidden = !contactEmail
   clearTimeout(updateNoteTimer)
   els.updateBtn.textContent = t('update.check')
   els.updateBtn.disabled = false

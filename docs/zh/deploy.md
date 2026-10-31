@@ -33,10 +33,22 @@ SITE_URL=https://dsh.wordtk.com npm run deploy
 `npm run deploy` 会先执行 `scripts/render-seo.mjs`（把 `__SITE_URL__` 占位符替换成
 真实域名，并生成 `sitemap.xml` / `robots.txt`），再 `wrangler deploy`。
 
-域名绑定写在 `wrangler.jsonc` 的 `routes`（`custom_domain: true`），`wrangler deploy`
-会一并维护 DNS 记录与证书；`workers_dev` 与 `preview_urls` 均为 false。
+域名绑定**不写在** `wrangler.jsonc` 里：线上域名不能硬编码进仓库。Custom Domain 只需在
+Cloudflare Dashboard → Workers & Pages → `dsh-ready` → Settings → Domains & Routes 绑定一次，
+`wrangler deploy` 不会改动它；`workers_dev` 与 `preview_urls` 均为 false。
 
 ## 发版流程（桌面端 + 官网）
+
+桌面端打包前，仓库根目录放一个 `.env`（已被 git 忽略）写入两个变量，`electron-builder`
+的 `beforeBuild` 会用 `scripts/write-site-config.cjs` 生成 `electron/site.generated.json`
+打包进应用：
+
+```sh
+SITE_URL=https://你的域名
+CONTACT_EMAIL=你的邮箱
+```
+
+不配这两个变量也能打包：应用会关闭启动上报与更新检查、并隐藏关于面板里的邮箱入口。
 
 ```sh
 # 1. 改 package.json 的 version

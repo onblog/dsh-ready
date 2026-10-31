@@ -6,3 +6,6 @@ build/
 tmp/
 .env
 .wrangler/
+
+# Written at packaging time by scripts/write-site-config.cjs (site origin + contact email)
+electron/site.generated.json

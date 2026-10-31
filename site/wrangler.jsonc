@@ -48,12 +48,12 @@
 
   // No workers.dev hostname: the site is only reachable through its custom
   // domain. The domain itself is deployment configuration and is deliberately
-  // kept out of the repository (see docs/zh/deploy.md).
+  // kept out of the repository (see docs/en/deploy.md · docs/zh/deploy.md).
   "workers_dev": false,
-  "preview_urls": false,
+  "preview_urls": false
 
-  // Custom domain. A Worker custom domain is deployment configuration, so it
-  // is always declared here (and in docs/zh/deploy.md) rather than typed into
-  // the dashboard: `wrangler deploy` then keeps DNS + certificate in sync.
-  "routes": [{ "pattern": "dsh.wordtk.com", "custom_domain": true }]
+  // The custom domain is **not** declared here. A live origin is deployment
+  // configuration and must not be hardcoded in the repository, so the Custom
+  // Domain is bound once in Cloudflare Dashboard → Workers & Pages → dsh-ready →
+  // Settings → Domains & Routes. `wrangler deploy` leaves it untouched.
 }

@@ -1,3 +1,9 @@
+import { execFileSync } from 'node:child_process'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const ROOT = dirname(fileURLToPath(import.meta.url))
+
 export default {
   appId: 'com.onblog.dsh-ready',
   productName: 'DSH 就位',
@@ -7,6 +13,14 @@ export default {
   },
   files: ['electron/**/*', 'renderer/**/*', 'package.json'],
   asar: true,
+  // The live origin and the contact address never enter the repository, so they are
+  // baked into a generated module right before packaging (from SITE_URL /
+  // CONTACT_EMAIL, env or .env). Every `dist*` script gets it for free this way.
+  beforeBuild: () => {
+    execFileSync(process.execPath, [join(ROOT, 'scripts', 'write-site-config.cjs')], {
+      stdio: 'inherit',
+    })
+  },
   // Ad-hoc signing happens in afterPack, on the exact bundle that goes into the
   // dmg; that hook runs after packaging and before the dmg is built.
   afterPack: 'scripts/after-pack.cjs',
