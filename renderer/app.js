@@ -76,11 +76,10 @@ function statusText(status) {
   return t(`status.${status}`)
 }
 
+/** The button shows the theme it switches to, not the one currently active. */
 function themeLabel(theme) {
-  return t(`theme.${THEME_KEY[theme] ?? 'dark'}`)
+  return t(theme === 'dark' ? 'theme.light' : 'theme.dark')
 }
-
-const THEME_KEY = { light: 'light', dark: 'dark' }
 
 let state = null
 let versions = []
