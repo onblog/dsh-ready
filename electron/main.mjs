@@ -24,7 +24,7 @@ import {
   primeGlobalPrefix,
 } from './dsh.mjs'
 import { resolveRuntime, runtimeState, clearRuntimeCache, logToolchain } from './runtime.mjs'
-import { start, stop, currentState } from './server.mjs'
+import { start, stop, currentState, sleepInhibitor } from './server.mjs'
 import { findExternalDsh, killExternalDsh, waitPortFree } from './external.mjs'
 import { buildUpgradePlan, applyUpgradePlan, removeProfileConfig, uninstallProfilePlugins } from './plugins.mjs'
 import { ensureShellEnv } from './shellenv.mjs'
@@ -85,6 +85,11 @@ function showMainWindow() {
 /** macOS only: the Dock icon is a setting, everything else has no concept of it. */
 function dockSupported() {
   return process.platform === 'darwin' && Boolean(app.dock)
+}
+
+/** macOS only: keeping the machine awake needs `caffeinate`, which only macOS ships. */
+function preventSleepSupported() {
+  return Boolean(sleepInhibitor())
 }
 
 let dockTimer = null
@@ -458,6 +463,33 @@ ipcMain.handle('dsh:takeover', async () => {
   }
 })
 
+/**
+ * Restart the app-managed instance in place, so a launch-time setting ("prevent idle
+ * sleep", later the proxy or launch arguments) can take effect without a trip to Stop.
+ */
+ipcMain.handle('dsh:restart', async () => {
+  if (task) return { ok: false, message: mainT(resolveLang(), 'msg.busy') }
+  try {
+    task = 'restarting'
+    await emitState()
+    if (currentState().running) {
+      await stop()
+    } else if (external) {
+      push('重启前先停止其它方式启动的 DSH')
+      await killExternalDsh(external.pid)
+      await waitPortFree(external.port)
+      external = null
+    }
+    const url = await start(readSettings().port)
+    return { ok: true, url }
+  } catch (error) {
+    return { ok: false, message: error.message }
+  } finally {
+    task = null
+    await emitState()
+  }
+})
+
 ipcMain.handle('dsh:open', async () => {
   const live = currentState()
   const target = live.openUrl || live.url
@@ -475,6 +507,7 @@ function publicSettings() {
     openInBrowser: settings.openInBrowser,
     showTray: settings.showTray,
     showDock: settings.showDock,
+    preventSleep: settings.preventSleep,
     telemetry: settings.telemetry,
     autoUpdateCheck: settings.autoUpdateCheck,
     npmRegistry: settings.npmRegistry,
@@ -492,6 +525,9 @@ ipcMain.handle('settings:set', async (_event, patch) => {
     if (typeof patch.openInBrowser === 'boolean') next.openInBrowser = patch.openInBrowser
     if (typeof patch.showTray === 'boolean') next.showTray = patch.showTray
     if (typeof patch.showDock === 'boolean') next.showDock = patch.showDock
+    // The switch only exists on macOS; other platforms refuse the write instead of storing
+    // a value nothing reads.
+    if (typeof patch.preventSleep === 'boolean' && preventSleepSupported()) next.preventSleep = patch.preventSleep
     if (typeof patch.telemetry === 'boolean') next.telemetry = patch.telemetry
     if (typeof patch.autoUpdateCheck === 'boolean') next.autoUpdateCheck = patch.autoUpdateCheck
     if (NPM_REGISTRIES.includes(patch.npmRegistry)) next.npmRegistry = patch.npmRegistry
@@ -536,8 +572,20 @@ ipcMain.handle('settings:set', async (_event, patch) => {
   }
   if (dropped.length) push(`已忽略不可用的参数：${[...new Set(dropped)].join(' ')}`)
 
+  // "Prevent idle sleep" is applied when DSH is spawned, so a running instance has to be
+  // restarted for the change to take effect. The renderer asks; declining reverts the write.
+  const sleepChanged = after.preventSleep !== before.preventSleep
+  if (sleepChanged) {
+    push(after.preventSleep ? '已开启「阻止空闲休眠」（重启 DSH 后生效）' : '已关闭「阻止空闲休眠」（重启 DSH 后生效）')
+  }
+
   await emitState()
-  return { ok: true, settings: publicSettings(), dropped: [...new Set(dropped)] }
+  return {
+    ok: true,
+    settings: publicSettings(),
+    dropped: [...new Set(dropped)],
+    restartRequired: sleepChanged && currentState().running,
+  }
 })
 
 ipcMain.handle('app:info', () => ({
@@ -547,6 +595,7 @@ ipcMain.handle('app:info', () => ({
   developer: DEVELOPER,
   autoLaunch: readAutoLaunch(),
   dock: { supported: dockSupported() },
+  preventSleep: { supported: preventSleepSupported() },
 }))
 
 ipcMain.handle('app:auto-launch', async (_event, enabled) => {

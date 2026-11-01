@@ -391,7 +391,9 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
 .modal {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  /* Above the settings sheet (70): a switch inside the sheet can raise a confirm dialog
+     (restart DSH to apply), and that dialog has to be the topmost layer. */
+  z-index: 80;
   display: flex;
   align-items: center;
   justify-content: center;

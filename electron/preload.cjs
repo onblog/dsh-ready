@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('api', {
   start: () => ipcRenderer.invoke('dsh:start'),
   stop: () => ipcRenderer.invoke('dsh:stop'),
   takeover: () => ipcRenderer.invoke('dsh:takeover'),
+  restart: () => ipcRenderer.invoke('dsh:restart'),
   open: () => ipcRenderer.invoke('dsh:open'),
   getLogs: () => ipcRenderer.invoke('log:get'),
   clearLogs: () => ipcRenderer.invoke('log:clear'),

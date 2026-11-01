@@ -61,6 +61,8 @@ const els = {
   showTray: $('showTray'),
   showDock: $('showDock'),
   showDockNote: $('showDockNote'),
+  preventSleep: $('preventSleep'),
+  preventSleepNote: $('preventSleepNote'),
   themeSeg: $('themeSeg'),
   langSeg: $('langSeg'),
   registrySeg: $('registrySeg'),
@@ -75,7 +77,7 @@ const els = {
   sponsorBtn: $('sponsorBtn'),
 }
 
-const BUSY_STATUS = new Set(['starting', 'stopping', 'installing', 'upgrading', 'uninstalling', 'takingover'])
+const BUSY_STATUS = new Set(['starting', 'stopping', 'restarting', 'installing', 'upgrading', 'uninstalling', 'takingover'])
 const THEMES = ['light', 'dark']
 const LANGS = ['zh', 'en']
 
@@ -161,6 +163,7 @@ const STATUS_PET = {
   starting: 'busy',
   running: 'running',
   stopping: 'busy',
+  restarting: 'busy',
   installing: 'busy',
   upgrading: 'busy',
   uninstalling: 'busy',
@@ -310,6 +313,8 @@ function defaultHint(current) {
       return t('hint.running')
     case 'stopping':
       return t('hint.stopping')
+    case 'restarting':
+      return t('hint.restarting')
     case 'installing':
       return t('hint.installing')
     case 'upgrading':
@@ -938,12 +943,26 @@ function renderShowDock() {
   els.showDockNote.textContent = supported ? '' : t('sheet.showDockMacOnly')
 }
 
+/**
+ * "Prevent idle sleep" is macOS-only too, and it is applied when DSH is spawned rather
+ * than live. On other platforms the row reads off + disabled: the switch never claims
+ * something the app cannot do there.
+ */
+function renderPreventSleep() {
+  const supported = Boolean(appInfo?.preventSleep?.supported)
+  setSwitch(els.preventSleep, supported && settings?.preventSleep !== false)
+  els.preventSleep.disabled = !supported
+  els.preventSleepNote.hidden = supported
+  els.preventSleepNote.textContent = supported ? '' : t('sheet.preventSleepMacOnly')
+}
+
 /** Paint every control from the settings snapshot; called on open, after every write and on language change. */
 function renderSettingsSheet() {
   if (!settings) return
   setSwitch(els.openInBrowser, Boolean(settings.openInBrowser))
   setSwitch(els.showTray, settings.showTray !== false)
   renderShowDock()
+  renderPreventSleep()
   setSwitch(els.telemetry, settings.telemetry !== false)
   setSwitch(els.autoUpdateCheck, settings.autoUpdateCheck !== false)
 
@@ -1167,6 +1186,46 @@ bindSwitch(els.showTray, 'showTray')
 bindSwitch(els.showDock, 'showDock')
 bindSwitch(els.telemetry, 'telemetry')
 bindSwitch(els.autoUpdateCheck, 'autoUpdateCheck')
+
+/**
+ * "Prevent idle sleep" only exists at launch time (the spawn is wrapped in `caffeinate -i`),
+ * so a running instance has to be restarted for a toggle to take effect. The main process
+ * reports `restartRequired` only while an app-managed DSH is running — with nothing running
+ * the switch is saved silently and applies on the next start.
+ *
+ * Confirming restarts DSH; declining is not "apply later" but a rollback, so the row always
+ * shows a setting that is actually in force.
+ */
+els.preventSleep.addEventListener('click', async () => {
+  if (els.preventSleep.disabled) return
+  const next = els.preventSleep.dataset.on !== 'true'
+  setSwitch(els.preventSleep, next)
+  const result = await window.api.setSettings({ preventSleep: next }).catch(() => null)
+  if (!result?.ok) {
+    setSwitch(els.preventSleep, !next)
+    return
+  }
+  settings = { ...(settings ?? {}), ...result.settings }
+  renderSettingsSheet()
+  if (!result.restartRequired) return
+
+  const confirmed = await showModal({
+    title: t('sleep.restartTitle'),
+    lines: [t('sleep.restartDetail')],
+    confirmText: t('sleep.restartNow'),
+  })
+  if (confirmed) {
+    closeSettings()
+    runAction(() => window.api.restart(), t('notice.restarting'), t('notice.restarted'))
+    return
+  }
+
+  const reverted = await window.api.setSettings({ preventSleep: !next }).catch(() => null)
+  if (reverted?.settings) settings = { ...(settings ?? {}), ...reverted.settings }
+  renderSettingsSheet()
+  els.preventSleep.focus()
+  notice(t('sleep.reverted'))
+})
 
 els.registrySeg.addEventListener('click', (event) => {
   const item = event.target.closest('.seg-item')

@@ -25,6 +25,9 @@ const DEFAULT_SETTINGS = {
   // macOS only: keep a Dock icon. Off by default so the launcher lives in the menu bar
   // instead of taking a permanent Dock slot; Windows / Linux ignore this value.
   showDock: false,
+  // macOS only: wrap the DSH launch in `caffeinate -i` so the machine does not idle-sleep
+  // while DSH runs. On by default; Windows / Linux ignore this value.
+  preventSleep: true,
   // Anonymous launch reporting. The daily update check has its own switch.
   telemetry: true,
   autoUpdateCheck: true,
@@ -159,6 +162,7 @@ export function readSettings() {
     openInBrowser: bool(stored.openInBrowser, DEFAULT_SETTINGS.openInBrowser),
     showTray: bool(stored.showTray, DEFAULT_SETTINGS.showTray),
     showDock: bool(stored.showDock, DEFAULT_SETTINGS.showDock),
+    preventSleep: bool(stored.preventSleep, DEFAULT_SETTINGS.preventSleep),
     telemetry: bool(stored.telemetry, DEFAULT_SETTINGS.telemetry),
     autoUpdateCheck: bool(stored.autoUpdateCheck, DEFAULT_SETTINGS.autoUpdateCheck),
     npmRegistry: NPM_REGISTRIES.includes(stored.npmRegistry) ? stored.npmRegistry : DEFAULT_SETTINGS.npmRegistry,

@@ -11,6 +11,18 @@ import { ensureShellEnv } from './shellenv.mjs'
 
 const PORT_PATTERN = /http:\/\/127\.0\.0\.1:(\d+)\//
 
+/**
+ * macOS only: `caffeinate -i` holds a "prevent idle system sleep" assertion for as long as
+ * the command it wraps lives. The absolute path is used because a packaged app's PATH need
+ * not contain /usr/bin first.
+ */
+const CAFFEINATE = '/usr/bin/caffeinate'
+
+export function sleepInhibitor() {
+  if (process.platform !== 'darwin') return null
+  return existsSync(CAFFEINATE) ? CAFFEINATE : null
+}
+
 let child = null
 let url = null
 let openUrl = null
@@ -101,7 +113,15 @@ export async function start(targetPort) {
 
   push(`启动 DSH（端口 ${desired}${extra.args.length ? `，附加参数 ${extra.args.join(' ')}` : ''}）`)
   const launcher = dshLauncher(target, runtime)
-  child = spawn(launcher.cmd, [...launcher.prefix, ...args], {
+  // The setting only takes effect at launch time. macOS caffeinate re-execs the tool into
+  // its own pid and forks a small assertion holder alongside; both stay in the process group
+  // we kill, and the holder drops the assertion the moment DSH exits.
+  const inhibitor = settings.preventSleep ? sleepInhibitor() : null
+  if (settings.preventSleep && !inhibitor) push('未能启用「阻止空闲休眠」：未找到 /usr/bin/caffeinate')
+  const command = inhibitor ?? launcher.cmd
+  const commandArgs = inhibitor ? ['-i', launcher.cmd, ...launcher.prefix, ...args] : [...launcher.prefix, ...args]
+  if (inhibitor) push('已启用「阻止空闲休眠」：caffeinate -i 启动 DSH')
+  child = spawn(command, commandArgs, {
     cwd: homedir(),
     env,
     detached: process.platform !== 'win32',

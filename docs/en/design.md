@@ -73,7 +73,7 @@ No request payload. Response fields:
 
 | Field | Meaning | Values |
 | --- | --- | --- |
-| status | current state | not-installed / stopped / external / starting / running / stopping / installing / upgrading / uninstalling / takingover |
+| status | current state | not-installed / stopped / external / starting / running / stopping / restarting / installing / upgrading / uninstalling / takingover |
 | external | instance on the target port started elsewhere | `{ pid, port, url }` or null |
 | targetPort | target port (editable, default 3080) | 1–65535 |
 | dshVersion | active version | semver or null |
@@ -123,6 +123,13 @@ upgrade in that order.
   port, stops the external process, waits for the port, then restarts from the app.
 - `dsh:open` opens the current URL (with token) in the system browser.
 
+### `dsh:restart`
+
+No request payload; response `{ ok, url }`. Stops the current instance (app-started or the
+accepted external one) and starts it again with the current settings, so launch-time settings
+(prevent idle sleep, proxy, extra arguments) take effect right away. The status shows
+`restarting` meanwhile.
+
 ### `log:get`, `log:clear`, `port:set`, `app:quit`, `lang:set`, `theme:set`
 
 `log:get` → `{ lines }` (last 2000 lines); `log:clear` → `{ ok }`.
@@ -134,21 +141,26 @@ upgrade in that order.
 
 ### `app:info`, `app:auto-launch`
 
-`app:info` → `{ version, site, github, developer, autoLaunch }`, where `autoLaunch` is
-`{ supported, enabled }` and `supported` is true only in the installed macOS / Windows build.
+`app:info` → `{ version, site, github, developer, autoLaunch, dock, preventSleep }`, where
+`autoLaunch` is `{ supported, enabled }` and `supported` is true only in the installed macOS /
+Windows build; `dock.supported` and `preventSleep.supported` are true on macOS only (the
+latter also needs `/usr/bin/caffeinate`).
 `app:auto-launch` takes `{ enabled }`, calls `app.setLoginItemSettings({ openAtLogin })` and
 reads the real state back → `{ ok, supported, enabled }`. Unsupported platforms return
 `ok: false` with a message, and the result is written to the app log.
 
 ### `settings:get`, `settings:set`
 
-`settings:get` → `{ port, openInBrowser, telemetry, autoUpdateCheck, npmRegistry, proxy, dshArgs }`.
-`settings:set` takes any subset of those fields → `{ ok, settings, dropped }`, where `dropped` lists
-the launch-argument tokens the whitelist refused. Values are normalised before writing: `proxy` via
-`normalizeProxy` (illegal input becomes empty), `dshArgs` via `parseDshArgs` (drops `--port` and
-other non-whitelisted tokens), booleans only accept `true` / `false`. A changed `npmRegistry` clears
-the registry cache and re-reads the latest version. Port, theme and language keep their own
-`port:set` / `theme:set` / `lang:set` channels.
+`settings:get` → `{ port, openInBrowser, showTray, showDock, preventSleep, telemetry,
+autoUpdateCheck, npmRegistry, proxy, dshArgs }`.
+`settings:set` takes any subset of those fields → `{ ok, settings, dropped, restartRequired }`,
+where `dropped` lists the launch-argument tokens the whitelist refused and `restartRequired`
+reports that a running app-managed DSH must be restarted before the new `preventSleep` value
+applies. Values are normalised before writing: `proxy` via `normalizeProxy` (illegal input
+becomes empty), `dshArgs` via `parseDshArgs` (drops `--port` and other non-whitelisted tokens),
+booleans only accept `true` / `false`; `preventSleep` is written on macOS only. A changed
+`npmRegistry` clears the registry cache and re-reads the latest version. Port, theme and
+language keep their own `port:set` / `theme:set` / `lang:set` channels.
 
 ### Event `dsh:event`
 
@@ -177,7 +189,7 @@ State → animation mapping (bundled assets):
 | --- | --- | --- |
 | idle breathing | `idle` | not-installed |
 | sleeping | `sleepy` | stopped |
-| busy | `busy` | starting / stopping / installing / upgrading / uninstalling / takingover |
+| busy | `busy` | starting / stopping / restarting / installing / upgrading / uninstalling / takingover |
 | floating steps | `running` | running |
 | looking around | `look` | external |
 | wave | `happy` | clicking the whale girl (2s, then back) |
@@ -202,7 +214,7 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
   never wrapped), three groups of settings, and a "Buy me a coffee" button at the bottom.
   Licence and commercial-licensing copy are no longer shown.
 - Settings groups (fixed order):
-  - **General**: launch at login, DSH port, open the browser after start, system tray icon, Dock icon, theme, language.
+  - **General**: launch at login, DSH port, open the browser after start, system tray icon, Dock icon, prevent idle sleep, theme, language.
   - **Network**: npm registry (auto / official / mirror), HTTP(S) proxy, extra DSH arguments.
   - **Privacy & updates**: anonymous launch report, daily update check, manual check button.
 - The port has exactly one entry point: the "DSH port" row in the sheet. The main window shows it
@@ -243,6 +255,14 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
 - Proxy normalisation: `host:port` and `http(s)://host:port` are accepted; any other scheme (socks)
   is refused; a single-label host (`http`, `proxy` — usually a half-typed value) must carry an
   explicit port, while IPv4 / dotted names / localhost / IPv6 may omit it; the port must be 1–65535.
+- Prevent idle sleep (macOS only): **on by default** — the launch is wrapped in `caffeinate -i`,
+  so idle sleep (short of closing the lid) no longer interrupts a running session. On Windows /
+  Linux the row is disabled with "macOS only" and reads off: the app really cannot do it there.
+  The value is read when DSH is spawned, so a toggle is written immediately and, when an
+  app-managed DSH is running, the main process answers `restartRequired: true`; the sheet then
+  raises the in-app confirm dialog — "Restart now" runs `dsh:restart` (stop → start, status
+  `restarting`), while cancelling keeps nothing: `preventSleep` is rolled back and focus returns
+  to the switch. With DSH stopped the value is saved silently and applies on the next start.
 - An invalid proxy never overwrites a working one: `settings:set` answers
   `ok:false, invalid:'proxy'`, the field is highlighted and the typed text is kept, instead of the
   earlier behaviour that normalised it to an empty string and silently cleared the stored proxy.
@@ -276,9 +296,9 @@ macOS Apple Silicon (arm64), macOS Intel (x64) and Windows (x64).
 
 | Artifact | Command | Notes |
 | --- | --- | --- |
-| `dsh-ready-1.0.14-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
-| `dsh-ready-1.0.14-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
-| `dsh-ready-1.0.14-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
+| `dsh-ready-1.0.15-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
+| `dsh-ready-1.0.15-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
+| `dsh-ready-1.0.15-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
 
 - Cross-builds download the matching Electron build; Intel/Windows packaging works on
   an Apple Silicon Mac without Wine.

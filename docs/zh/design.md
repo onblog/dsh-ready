@@ -15,7 +15,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 5. 检测外部实例 → 每 4 秒扫描系统里的 `dsh web` 进程，只认监听「目标端口」的实例；命中时状态显示「已运行（外部）」，可停止或一键接管重启，其它端口的 dsh 不接管。
 6. 运行时 → 读取登录 shell 的 Node/npm 并打印版本；缺 Node、版本低于 22.18 或缺 npm 时，不自动修改用户环境，提示用户前往 Node.js 中文官网下载页手动安装。
 7. 安装 → `npm install -g @deepseek-ai/dsh@<版本>` 装到 npm 的默认全局前缀（nvm/Homebrew 的用户级 Node 都可写），不加 `--prefix`、不需要 sudo。
-8. 启动 → `dsh web --no-open --port <目标端口>`，端口被占用时直接报错并提示改端口；从日志解析带 token 的地址，就绪后用系统浏览器打开。
+8. 启动 → `dsh web --no-open --port <目标端口>`，端口被占用时直接报错并提示改端口；从日志解析带 token 的地址，就绪后用系统浏览器打开。macOS 上开启「阻止空闲休眠」时，整条命令外面再套一层 `caffeinate -i`（caffeinate 把工具换成自己的 pid 执行，另 fork 一个断言持有进程），DSH 退出时断言随之释放。
 9. 运行中 → stdout/stderr 实时流入日志面板并落盘；状态由进程存活 + HTTP 探测共同判定。
 10. 停止 → 先 SIGTERM 进程组，超时 SIGKILL；应用退出时自动停止。
 11. 升级 → 版本下拉只在「安装流程」和「升级流程」里出现。升级分两步：先出升级计划，再执行。
@@ -33,7 +33,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 | 字段 | 含义 | 取值范围 |
 | --- | --- | --- |
-| status | 当前状态 | not-installed / stopped / external / starting / running / stopping / installing / upgrading / uninstalling / takingover |
+| status | 当前状态 | not-installed / stopped / external / starting / running / stopping / restarting / installing / upgrading / uninstalling / takingover |
 | external | 目标端口上由其它方式启动的实例 | `{ pid, port, url }` 或 null |
 | targetPort | 目标端口（可修改，默认 3080） | 1–65535 |
 | dshVersion | 当前生效版本 | 语义化版本或 null |
@@ -134,6 +134,10 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 先弹确认框说明将停止的 PID 与端口，确认后停止外部进程、等待端口释放，再由 DSH 就位重新启动，实现接管。
 
+### `dsh:restart`
+
+无请求参数，响应 `{ ok, url }`。先停止当前实例（控制台启动的，或已接管的外部实例），再用当前设置重新启动，用于让「启动时生效」的设置（阻止空闲休眠、代理、附加参数）立刻落地。状态会短暂进入 `restarting`。
+
 ### `dsh:open`
 
 用系统浏览器打开当前地址（带 token），无请求参数，响应 `{ ok }`。
@@ -177,8 +181,9 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 ### `app:info` / `app:auto-launch`
 
-`app:info` 无参数，返回 `{ version, site, github, developer, autoLaunch }`；
-`autoLaunch` 为 `{ supported, enabled }`，`supported` 只在安装版 macOS / Windows 上为 true。
+`app:info` 无参数，返回 `{ version, site, github, developer, autoLaunch, dock, preventSleep }`；
+`autoLaunch` 为 `{ supported, enabled }`，`supported` 只在安装版 macOS / Windows 上为 true；
+`dock.supported` 与 `preventSleep.supported` 只在 macOS 上为 true（后者还要求系统存在 `/usr/bin/caffeinate`）。
 
 `app:auto-launch` 请求 `{ enabled }`，调用 `app.setLoginItemSettings({ openAtLogin })` 并回读真实状态。
 
@@ -192,19 +197,21 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 ### `settings:get` / `settings:set`
 
-`settings:get` 无参数，返回 `{ port, openInBrowser, telemetry, autoUpdateCheck, npmRegistry, proxy, dshArgs }`。
+`settings:get` 无参数，返回 `{ port, openInBrowser, showTray, showDock, preventSleep, telemetry, autoUpdateCheck, npmRegistry, proxy, dshArgs }`。
 
-`settings:set` 接受上述字段的子集，返回 `{ ok, settings, dropped }`：
+`settings:set` 接受上述字段的子集，返回 `{ ok, settings, dropped, restartRequired }`：
 
 | 字段 | 含义 | 取值范围 |
 | --- | --- | --- |
 | ok | 是否写入成功 | true / false |
 | settings | 回读后的完整设置 | 同 settings:get |
 | dropped | 被白名单丢弃的启动参数 | 字符串数组，可为空 |
+| restartRequired | `preventSleep` 变化且当前有就位启动的实例在跑 | true / false |
 
 写盘前统一做归一化：`proxy` 走 `normalizeProxy`（非法则存空串），`dshArgs` 走 `parseDshArgs`
 （丢弃 `--port` 等非法 token），布尔字段只接受 `true` / `false`。`npmRegistry` 变化时清空源缓存并
-重新拉取最新版本。端口与主题、语言仍走各自的 `port:set` / `theme:set` / `lang:set`。
+重新拉取最新版本。`preventSleep` 只在 macOS 上写入（其它平台忽略该字段）。端口与主题、语言仍走各自的
+`port:set` / `theme:set` / `lang:set`。
 
 ### 事件 `dsh:event`
 
@@ -233,7 +240,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 | --- | --- | --- |
 | 待机呼吸 | `idle` | not-installed |
 | 小憩沉眠 | `sleepy` | stopped |
-| 忙碌点按 | `busy` | starting / stopping / installing / upgrading / uninstalling / takingover |
+| 忙碌点按 | `busy` | starting / stopping / restarting / installing / upgrading / uninstalling / takingover |
 | 漂浮踏步 | `running` | running |
 | 东张西望 | `look` | external |
 | 元气挥手 | `happy` | 点击鲸鱼娘（2 秒后回到当前状态） |
@@ -255,7 +262,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
   开发者信息严格一行（👤 Martin · ✉ 邮箱 · GitHub · 官网，10.5px 可点击），不换行、超出裁切；
   下面是三组设置，底部是「请我喝杯咖啡」。不再展示开源协议与商业授权信息。
 - 设置项（三组，顺序固定）：
-  - **常规**：开机自启动、DSH 端口、启动后自动打开浏览器、系统托盘图标、显示 Dock 图标、主题、语言。
+  - **常规**：开机自启动、DSH 端口、启动后自动打开浏览器、系统托盘图标、显示 Dock 图标、阻止空闲休眠、主题、语言。
   - **网络**：npm 源（自动 / 官方 / 镜像）、HTTP(S) 代理、DSH 附加启动参数。
   - **隐私与更新**：匿名启动上报、自动检查更新、检查更新。
 - 端口只有一个入口：设置页的「DSH 端口」。主界面端口改为只读展示（`span`，不再是可点击按钮），
@@ -280,6 +287,12 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
   否则会留下 Dock 与设置不一致。Dock 隐藏后 macOS 把进程当作配件（`lsappinfo` 里 `type="UIElement"`），
   所以菜单栏唤起窗口时额外调 `app.focus({ steal: true })`，避免窗口开在别的应用后面；
   托盘与 Dock 都关掉时仍可从访达再点一次应用，第二个实例会唤出已有主窗口。
+- 阻止空闲休眠（仅 macOS）：**默认开启** —— 启动 DSH 时用 `caffeinate -i` 包住 `dsh web`，
+  合盖之外的空闲睡眠不会再打断跑着的会话；Windows / Linux 上该行禁用并标注「仅 macOS 可用」，
+  开关显示为关闭（应用在这两个平台确实做不到，不假装开着）。这个设置只在启动时读取，
+  切换后立即写盘；若此刻有就位启动的 DSH 在跑，主进程返回 `restartRequired: true`，界面弹应用内
+  确认框：「立即重启」走 `dsh:restart`（停 → 起，状态显示 `restarting`），「取消」不保留改动，
+  `preventSleep` 回滚到原值并把焦点还给开关；DSH 没在跑时直接保存，下次启动生效，不弹任何框。
 - npm 源：`auto` 保留原有的双源测速；`official` / `mirror` 直接锁定，跳过测速。
   切换后清空源缓存并重新拉取最新版本。
 - HTTP(S) 代理：只写进 npm 与 DSH 子进程的 `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` / `NO_PROXY`，
@@ -313,9 +326,9 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 | 产物 | 命令 | 说明 |
 | --- | --- | --- |
-| dsh-ready-1.0.14-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
-| dsh-ready-1.0.14-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
-| dsh-ready-1.0.14-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
+| dsh-ready-1.0.15-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
+| dsh-ready-1.0.15-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
+| dsh-ready-1.0.15-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
 
 - 交叉构建：Apple Silicon 上打 Intel 包时，electron-builder 自动下载 x64 版 Electron，产物是可运行的 x86_64 应用。
 - 三个平台都只检测用户环境里的 Node/npm，不自动安装或修改；缺失或版本不满足要求时显示本地化的 Node.js 官网安装链接。

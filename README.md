@@ -52,9 +52,9 @@ It starts the official web UI in your system browser.
 
 | Platform | Installer | Notes |
 | --- | --- | --- |
-| macOS Apple Silicon | `dsh-ready-1.0.14-arm64.dmg` | M1 / M2 / M3 / M4 |
-| macOS Intel | `dsh-ready-1.0.14-x64.dmg` | Intel-based Macs |
-| Windows x64 | `dsh-ready-1.0.14-x64.exe` | Windows 10 / 11 |
+| macOS Apple Silicon | `dsh-ready-1.0.15-arm64.dmg` | M1 / M2 / M3 / M4 |
+| macOS Intel | `dsh-ready-1.0.15-x64.dmg` | Intel-based Macs |
+| Windows x64 | `dsh-ready-1.0.15-x64.exe` | Windows 10 / 11 |
 
 Grab them from **[dsh.wordtk.com](https://dsh.wordtk.com)** — the installers live on R2
 and the site always serves the newest version.
@@ -94,10 +94,11 @@ All screenshots are captured from the real app running inside a sandbox, by
   main window); a busy port is reported instead of silently shifted, so the address you see is real.
 - **Settings in one place.** The header is four icons — language (文A), theme, settings, quit.
   The settings sheet is grouped: general (launch at login, DSH port, open the browser after
-  start, system tray icon, Dock icon on macOS, theme, language), network (npm registry auto/official/mirror, HTTP(S) proxy, extra DSH
-  arguments) and privacy & updates (anonymous launch report, daily check, manual check). The port
-  is edited only there — the main window shows it read-only — and extra arguments go through an
-  argv whitelist, never a shell, with `--port` always dropped. Sponsor entry at the bottom.
+  start, system tray icon, Dock icon on macOS, prevent idle sleep on macOS, theme, language),
+  network (npm registry auto/official/mirror, HTTP(S) proxy, extra DSH arguments) and privacy &
+  updates (anonymous launch report, daily check, manual check). The port is edited only there —
+  the main window shows it read-only — and extra arguments go through an argv whitelist, never a
+  shell, with `--port` always dropped. Sponsor entry at the bottom.
 - **Your Node, your environment.** DSH Ready uses the Node and npm from your login
   shell. When Node is missing, older than 22.18, or has no npm, it does not modify
   your environment and shows the localized Node.js download page (Chinese UI → the
