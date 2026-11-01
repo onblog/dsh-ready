@@ -77,6 +77,35 @@ function showMainWindow() {
   if (mainWindow.isMinimized()) mainWindow.restore()
   mainWindow.show()
   mainWindow.focus()
+  // With the Dock icon hidden the app has no regular activation path, so ask macOS
+  // to bring us forward explicitly; otherwise the window can open behind other apps.
+  if (app.dock && !app.dock.isVisible()) app.focus({ steal: true })
+}
+
+/** macOS only: the Dock icon is a setting, everything else has no concept of it. */
+function dockSupported() {
+  return process.platform === 'darwin' && Boolean(app.dock)
+}
+
+let dockTimer = null
+
+/**
+ * Apply the persisted Dock-icon preference. `dock.hide()` is a documented no-op when it
+ * runs within a second of a previous call, so re-check once after that window instead of
+ * trusting the first attempt (rapid switch toggling otherwise leaves the Dock out of sync).
+ */
+function applyDockIcon() {
+  if (!dockSupported()) return
+  const want = Boolean(readSettings().showDock)
+  const attempt = () => {
+    if (!app.dock || app.dock.isVisible() === want) return
+    if (want) void app.dock.show().catch(() => null)
+    else app.dock.hide()
+  }
+  attempt()
+  clearTimeout(dockTimer)
+  dockTimer = setTimeout(attempt, 1100)
+  dockTimer.unref?.()
 }
 
 function requestQuitFromTray() {
@@ -441,6 +470,7 @@ function publicSettings() {
     port: settings.port,
     openInBrowser: settings.openInBrowser,
     showTray: settings.showTray,
+    showDock: settings.showDock,
     telemetry: settings.telemetry,
     autoUpdateCheck: settings.autoUpdateCheck,
     npmRegistry: settings.npmRegistry,
@@ -457,6 +487,7 @@ ipcMain.handle('settings:set', async (_event, patch) => {
   if (patch && typeof patch === 'object') {
     if (typeof patch.openInBrowser === 'boolean') next.openInBrowser = patch.openInBrowser
     if (typeof patch.showTray === 'boolean') next.showTray = patch.showTray
+    if (typeof patch.showDock === 'boolean') next.showDock = patch.showDock
     if (typeof patch.telemetry === 'boolean') next.telemetry = patch.telemetry
     if (typeof patch.autoUpdateCheck === 'boolean') next.autoUpdateCheck = patch.autoUpdateCheck
     if (NPM_REGISTRIES.includes(patch.npmRegistry)) next.npmRegistry = patch.npmRegistry
@@ -482,6 +513,7 @@ ipcMain.handle('settings:set', async (_event, patch) => {
   const after = readSettings()
 
   if (after.showTray !== before.showTray) syncTray()
+  if (after.showDock !== before.showDock) applyDockIcon()
 
   if (after.npmRegistry !== before.npmRegistry) {
     // The registry is cached process-wide: drop it and re-read the latest version.
@@ -510,6 +542,7 @@ ipcMain.handle('app:info', () => ({
   github: GITHUB_URL,
   developer: DEVELOPER,
   autoLaunch: readAutoLaunch(),
+  dock: { supported: dockSupported() },
 }))
 
 ipcMain.handle('app:auto-launch', async (_event, enabled) => {
@@ -578,17 +611,12 @@ const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore()
-      mainWindow.show()
-      mainWindow.focus()
-    }
-  })
+  app.on('second-instance', () => showMainWindow())
 }
 
 app.whenReady().then(async () => {
   ensureDirs()
+  applyDockIcon()
   push('DSH 就位已启动')
   // The window need not wait for the shell environment: 2.5s at most, and loading is ensured again before starting DSH.
   await Promise.race([

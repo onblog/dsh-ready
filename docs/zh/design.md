@@ -8,7 +8,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 ## 整体流程
 
-1. 应用启动 → 首屏先显示轻量遮罩与转圈动画，读到本地状态（运行时、dsh 安装情况、进程状态）后再淡出；registry 最新版本后台拉取，不阻塞首屏。窗口关闭按钮只隐藏窗口，应用与 DSH 继续运行，点 Dock 图标恢复窗口。
+1. 应用启动 → 首屏先显示轻量遮罩与转圈动画，读到本地状态（运行时、dsh 安装情况、进程状态）后再淡出；registry 最新版本后台拉取，不阻塞首屏。窗口关闭按钮只隐藏窗口，应用与 DSH 继续运行，点菜单栏图标（或重新打开应用）恢复窗口。
 2. 环境变量 → 读取登录 shell 环境（`$SHELL -ilc 'env -0'`）并合并进进程环境：从 Dock 或 Finder 启动的图形应用只有 launchd 的精简环境，`~/.zshrc` 里的 API Key、代理、PATH 都不会自动带进来。`HOME`、`USER`、`SHELL`、`TMPDIR`、`PATH`、`DSH_HOME` 以应用自身为准；终端/会话类变量（`TERM*`、`ITERM_*`、`DSH_SESSION_ID`、`DSH_WEB_URL` 等）不回灌；`PATH` 取 shell 与应用的并集。dsh、npm、pnpm 都继承这份环境。
 3. 识别 DSH → 使用用户环境里已安装的 dsh（npm 全局、Homebrew、nvm 等）。
 4. 端口 → 默认 3080，界面上的端口可点击修改并持久化；启动固定使用该端口。
@@ -255,7 +255,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
   开发者信息严格一行（👤 Martin · ✉ 邮箱 · GitHub · 官网，10.5px 可点击），不换行、超出裁切；
   下面是三组设置，底部是「请我喝杯咖啡」。不再展示开源协议与商业授权信息。
 - 设置项（三组，顺序固定）：
-  - **常规**：开机自启动、DSH 端口、启动后自动打开浏览器、系统托盘图标、主题、语言。
+  - **常规**：开机自启动、DSH 端口、启动后自动打开浏览器、系统托盘图标、显示 Dock 图标、主题、语言。
   - **网络**：npm 源（自动 / 官方 / 镜像）、HTTP(S) 代理、DSH 附加启动参数。
   - **隐私与更新**：匿名启动上报、自动检查更新、检查更新。
 - 端口只有一个入口：设置页的「DSH 端口」。主界面端口改为只读展示（`span`，不再是可点击按钮），
@@ -272,6 +272,12 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
     在 Retina 上被二次放大。`nativeImage.createFromPath()` 会自动带上同目录的 `@2x` 变体，所以这里不做缩放。
   - **Windows / Linux 保留彩色图标**（`app-icon.png` 缩到 16px），左键点击唤起主窗口、右键出菜单；
     macOS 上「点任意键即出菜单」，因此不再额外绑 `click`，否则菜单和窗口会同时弹。
+- 显示 Dock 图标（仅 macOS）：**默认关闭** —— 启动器常驻菜单栏，不占用 Dock 位；Windows / Linux
+  上该行禁用并标注「仅 macOS 可用」。开关走 `app.dock.hide()` / `show()`，先用 `isVisible()` 比对期望值，
+  再在 1.1 秒后复核一次：Electron 文档明确 `dock.hide()` 对 1 秒内的连续调用是 no-op，快速连点时
+  否则会留下 Dock 与设置不一致。Dock 隐藏后 macOS 把进程当作配件（`lsappinfo` 里 `type="UIElement"`），
+  所以菜单栏唤起窗口时额外调 `app.focus({ steal: true })`，避免窗口开在别的应用后面；
+  托盘与 Dock 都关掉时仍可从访达再点一次应用，第二个实例会唤出已有主窗口。
 - npm 源：`auto` 保留原有的双源测速；`official` / `mirror` 直接锁定，跳过测速。
   切换后清空源缓存并重新拉取最新版本。
 - HTTP(S) 代理：只写进 npm 与 DSH 子进程的 `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` / `NO_PROXY`，
@@ -300,9 +306,9 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 | 产物 | 命令 | 说明 |
 | --- | --- | --- |
-| dsh-ready-1.0.12-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
-| dsh-ready-1.0.12-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
-| dsh-ready-1.0.12-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
+| dsh-ready-1.0.13-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
+| dsh-ready-1.0.13-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
+| dsh-ready-1.0.13-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
 
 - 交叉构建：Apple Silicon 上打 Intel 包时，electron-builder 自动下载 x64 版 Electron，产物是可运行的 x86_64 应用。
 - 三个平台都只检测用户环境里的 Node/npm，不自动安装或修改；缺失或版本不满足要求时显示本地化的 Node.js 官网安装链接。

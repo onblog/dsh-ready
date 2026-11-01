@@ -16,7 +16,8 @@ Exactly one DSH instance is managed at a time.
 1. App start → a light boot overlay with a spinner until local state (runtime, DSH
    install, process status) is read, then fades out. The registry's latest version is
    fetched in the background and never blocks the first paint. Closing the window
-   only hides it; the app and DSH keep running, and the Dock icon restores the window.
+   only hides it; the app and DSH keep running, and the menu-bar icon (or reopening the app)
+   restores the window.
 2. Environment → the login shell environment (`$SHELL -ilc 'env -0'`) is merged into
    the process environment. An app launched from Finder only inherits launchd's
    minimal environment, so API keys, proxies and `PATH` from `~/.zshrc` would
@@ -201,7 +202,7 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
   never wrapped), three groups of settings, and a "Buy me a coffee" button at the bottom.
   Licence and commercial-licensing copy are no longer shown.
 - Settings groups (fixed order):
-  - **General**: launch at login, DSH port, open the browser after start, system tray icon, theme, language.
+  - **General**: launch at login, DSH port, open the browser after start, system tray icon, Dock icon, theme, language.
   - **Network**: npm registry (auto / official / mirror), HTTP(S) proxy, extra DSH arguments.
   - **Privacy & updates**: anonymous launch report, daily update check, manual check button.
 - The port has exactly one entry point: the "DSH port" row in the sheet. The main window shows it
@@ -225,6 +226,14 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
   - **Windows / Linux keep the colour icon** (`app-icon.png` downscaled to 16px): left click restores
     the window, right click opens the menu. macOS opens the menu on any click, so no `click` handler
     is bound there — otherwise the menu and the window would both pop up.
+- Dock icon (macOS only): **off by default** — the launcher lives in the menu bar and keeps the Dock
+  free; the row is disabled with a "macOS only" note on Windows / Linux. The switch calls
+  `app.dock.hide()` / `show()`, compares against `isVisible()` first and re-checks 1.1s later, because
+  Electron documents `dock.hide()` as a no-op when another call happened within a second (otherwise a
+  quick double-toggle leaves the Dock out of sync with the setting). With the Dock hidden macOS treats
+  the process as an accessory app (`lsappinfo` reports `type="UIElement"`), so restoring the window
+  from the menu bar also calls `app.focus({ steal: true })`; with both the tray and the Dock off, the
+  app is still reachable by reopening it from Finder — the second instance brings the window back.
 - npm registry: `auto` keeps the original two-registry speed test; `official` / `mirror` pin one and
   skip the test. Switching clears the registry cache and re-reads the latest version.
 - HTTP(S) proxy: written only into the npm / DSH child environment (`HTTP_PROXY`, `HTTPS_PROXY`,
@@ -258,9 +267,9 @@ macOS Apple Silicon (arm64), macOS Intel (x64) and Windows (x64).
 
 | Artifact | Command | Notes |
 | --- | --- | --- |
-| `dsh-ready-1.0.12-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
-| `dsh-ready-1.0.12-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
-| `dsh-ready-1.0.12-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
+| `dsh-ready-1.0.13-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
+| `dsh-ready-1.0.13-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
+| `dsh-ready-1.0.13-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
 
 - Cross-builds download the matching Electron build; Intel/Windows packaging works on
   an Apple Silicon Mac without Wine.

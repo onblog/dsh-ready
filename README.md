@@ -52,9 +52,9 @@ It starts the official web UI in your system browser.
 
 | Platform | Installer | Notes |
 | --- | --- | --- |
-| macOS Apple Silicon | `dsh-ready-1.0.12-arm64.dmg` | M1 / M2 / M3 / M4 |
-| macOS Intel | `dsh-ready-1.0.12-x64.dmg` | Intel-based Macs |
-| Windows x64 | `dsh-ready-1.0.12-x64.exe` | Windows 10 / 11 |
+| macOS Apple Silicon | `dsh-ready-1.0.13-arm64.dmg` | M1 / M2 / M3 / M4 |
+| macOS Intel | `dsh-ready-1.0.13-x64.dmg` | Intel-based Macs |
+| Windows x64 | `dsh-ready-1.0.13-x64.exe` | Windows 10 / 11 |
 
 Grab them from **[dsh.wordtk.com](https://dsh.wordtk.com)** — the installers live on R2
 and the site always serves the newest version.
@@ -94,7 +94,7 @@ All screenshots are captured from the real app running inside a sandbox, by
   main window); a busy port is reported instead of silently shifted, so the address you see is real.
 - **Settings in one place.** The header is four icons — language (文A), theme, settings, quit.
   The settings sheet is grouped: general (launch at login, DSH port, open the browser after
-  start, system tray icon, theme, language), network (npm registry auto/official/mirror, HTTP(S) proxy, extra DSH
+  start, system tray icon, Dock icon on macOS, theme, language), network (npm registry auto/official/mirror, HTTP(S) proxy, extra DSH
   arguments) and privacy & updates (anonymous launch report, daily check, manual check). The port
   is edited only there — the main window shows it read-only — and extra arguments go through an
   argv whitelist, never a shell, with `--port` always dropped. Sponsor entry at the bottom.

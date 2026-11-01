@@ -103,6 +103,16 @@
         </div>
 
         <div class="row">
+          <div class="row-label">
+            <span data-i18n="sheet.showDock">显示 Dock 图标</span>
+            <span id="showDockNote" class="row-note" hidden></span>
+          </div>
+          <button id="showDock" class="switch" type="button" role="switch" aria-checked="false" disabled>
+            <span class="switch-knob"></span>
+          </button>
+        </div>
+
+        <div class="row">
           <span class="row-label" id="themeLabelText" data-i18n="sheet.theme">主题</span>
           <div class="seg" id="themeSeg" role="radiogroup" aria-labelledby="themeLabelText">
             <button class="seg-item" type="button" role="radio" data-value="light" aria-checked="false" data-i18n="theme.light">浅色</button>

@@ -22,6 +22,9 @@ const DEFAULT_SETTINGS = {
   openInBrowser: false,
   // Show the notification-area/menu-bar icon. Users can disable it from settings.
   showTray: true,
+  // macOS only: keep a Dock icon. Off by default so the launcher lives in the menu bar
+  // instead of taking a permanent Dock slot; Windows / Linux ignore this value.
+  showDock: false,
   // Anonymous launch reporting. The daily update check has its own switch.
   telemetry: true,
   autoUpdateCheck: true,
@@ -155,6 +158,7 @@ export function readSettings() {
     lang: stored.lang === 'zh' || stored.lang === 'en' || stored.lang === 'system' ? stored.lang : DEFAULT_SETTINGS.lang,
     openInBrowser: bool(stored.openInBrowser, DEFAULT_SETTINGS.openInBrowser),
     showTray: bool(stored.showTray, DEFAULT_SETTINGS.showTray),
+    showDock: bool(stored.showDock, DEFAULT_SETTINGS.showDock),
     telemetry: bool(stored.telemetry, DEFAULT_SETTINGS.telemetry),
     autoUpdateCheck: bool(stored.autoUpdateCheck, DEFAULT_SETTINGS.autoUpdateCheck),
     npmRegistry: NPM_REGISTRIES.includes(stored.npmRegistry) ? stored.npmRegistry : DEFAULT_SETTINGS.npmRegistry,

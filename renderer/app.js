@@ -59,6 +59,8 @@ const els = {
   portNote: $('portNote'),
   openInBrowser: $('openInBrowser'),
   showTray: $('showTray'),
+  showDock: $('showDock'),
+  showDockNote: $('showDockNote'),
   themeSeg: $('themeSeg'),
   langSeg: $('langSeg'),
   registrySeg: $('registrySeg'),
@@ -907,11 +909,21 @@ function setSwitch(button, on) {
   button.setAttribute('aria-checked', on ? 'true' : 'false')
 }
 
+/** The Dock row is macOS-only: other platforms get it disabled with the reason spelled out. */
+function renderShowDock() {
+  const supported = Boolean(appInfo?.dock?.supported)
+  setSwitch(els.showDock, Boolean(settings?.showDock))
+  els.showDock.disabled = !supported
+  els.showDockNote.hidden = supported
+  els.showDockNote.textContent = supported ? '' : t('sheet.showDockMacOnly')
+}
+
 /** Paint every control from the settings snapshot; called on open, after every write and on language change. */
 function renderSettingsSheet() {
   if (!settings) return
   setSwitch(els.openInBrowser, Boolean(settings.openInBrowser))
   setSwitch(els.showTray, settings.showTray !== false)
+  renderShowDock()
   setSwitch(els.telemetry, settings.telemetry !== false)
   setSwitch(els.autoUpdateCheck, settings.autoUpdateCheck !== false)
 
@@ -1132,6 +1144,7 @@ function bindSwitch(button, key) {
 
 bindSwitch(els.openInBrowser, 'openInBrowser')
 bindSwitch(els.showTray, 'showTray')
+bindSwitch(els.showDock, 'showDock')
 bindSwitch(els.telemetry, 'telemetry')
 bindSwitch(els.autoUpdateCheck, 'autoUpdateCheck')
 
