@@ -135,6 +135,15 @@ function trayIcon() {
     .resize({ width: 16, height: 16 })
 }
 
+/** The tray menu, rebuilt on every sync so its labels follow the language switch. */
+function trayMenu() {
+  return Menu.buildFromTemplate([
+    { label: resolveLang() === 'zh' ? '显示主窗口' : 'Show main window', click: showMainWindow },
+    { type: 'separator' },
+    { label: resolveLang() === 'zh' ? '退出' : 'Quit', click: requestQuitFromTray },
+  ])
+}
+
 /** Keep one native notification-area/menu-bar icon in sync with the persisted setting. */
 function syncTray() {
   if (!readSettings().showTray) {
@@ -144,19 +153,14 @@ function syncTray() {
   }
   if (!tray) {
     tray = new Tray(trayIcon())
-    // Windows/Linux: left click brings the window back, the menu is the right-click one.
-    // macOS shows the context menu on any click, so binding click too would also pop the window.
-    if (process.platform !== 'darwin') {
-      tray.on('click', showMainWindow)
-      tray.on('double-click', showMainWindow)
-    }
+    // One click on the whale always brings the window back — no double-click handler.
+    tray.on('click', showMainWindow)
+    // macOS pops an attached menu on *any* click, which would swallow that first click,
+    // so there the menu is bound to the right button only and pushed manually.
+    if (process.platform === 'darwin') tray.on('right-click', () => tray.popUpContextMenu(trayMenu()))
   }
   tray.setToolTip(resolveLang() === 'zh' ? 'DSH 就位' : 'DSH Ready')
-  tray.setContextMenu(Menu.buildFromTemplate([
-    { label: resolveLang() === 'zh' ? '显示主窗口' : 'Show main window', click: showMainWindow },
-    { type: 'separator' },
-    { label: resolveLang() === 'zh' ? '退出' : 'Quit', click: requestQuitFromTray },
-  ]))
+  if (process.platform !== 'darwin') tray.setContextMenu(trayMenu())
 }
 
 /** Refresh the "DSH started another way" detection result; returns whether it changed. */

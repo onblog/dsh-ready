@@ -115,6 +115,26 @@ let versions = []
 let versionTags = {}
 let selectedVersion = null
 let dropdownOpen = false
+/**
+ * Input modality, tracked so a window that comes back from a hidden state does not paint
+ * a focus ring the user never asked for. A key press keeps the ring; a pointer click or a
+ * programmatic refocus (tray click -> mainWindow.show()) must not.
+ */
+let keyboardNav = false
+document.addEventListener('keydown', () => { keyboardNav = true }, true)
+document.addEventListener('pointerdown', () => { keyboardNav = false }, true)
+
+/**
+ * Chromium keeps the previously focused control when a hidden window is shown again and can
+ * paint its :focus-visible ring — with the header icons that reads as a stray border lighting
+ * up on the language button. Only the header is touched: a field elsewhere keeps its focus.
+ */
+window.addEventListener('focus', () => {
+  if (keyboardNav) return
+  const active = document.activeElement
+  if (active instanceof HTMLElement && active.closest('.bar')) active.blur()
+})
+
 let noticeTimer = null
 let noticeText = ''
 let noticeIsError = false

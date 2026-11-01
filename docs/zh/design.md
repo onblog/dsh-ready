@@ -270,8 +270,10 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
     （`@deepseek-ai/dsh-client-ui-primitives` 的 `FISH_LOGO_PATH`，viewBox 23.16×17.04），不自己另画、
     也不拿彩色应用图标去 `.resize()`：立绘缩到 16–18px 是一团糊块，而且 `resize()` 会丢掉 `@2x` 表示、
     在 Retina 上被二次放大。`nativeImage.createFromPath()` 会自动带上同目录的 `@2x` 变体，所以这里不做缩放。
-  - **Windows / Linux 保留彩色图标**（`app-icon.png` 缩到 16px），左键点击唤起主窗口、右键出菜单；
-    macOS 上「点任意键即出菜单」，因此不再额外绑 `click`，否则菜单和窗口会同时弹。
+  - **Windows / Linux 保留彩色图标**（`app-icon.png` 缩到 16px）。
+  - **单击即回到主窗口**（三平台一致，故意不绑 `double-click`）：macOS 若用 `setContextMenu` 会在
+    任意点击时弹菜单、把这一次单击吃掉，所以那里只在**右键**用 `popUpContextMenu` 推菜单，
+    左键留给 `click` → 唤起窗口。
 - 显示 Dock 图标（仅 macOS）：**默认关闭** —— 启动器常驻菜单栏，不占用 Dock 位；Windows / Linux
   上该行禁用并标注「仅 macOS 可用」。开关走 `app.dock.hide()` / `show()`，先用 `isVisible()` 比对期望值，
   再在 1.1 秒后复核一次：Electron 文档明确 `dock.hide()` 对 1 秒内的连续调用是 no-op，快速连点时
@@ -294,6 +296,11 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
   `/api/release`；手动「检查更新」始终可用。环境变量 `DSH_READY_NO_TELEMETRY=1` 仍是硬关闭。
 - 所有切换控件均为自绘：分段控件与开关都是 `button` + `aria-checked`，文本输入框也是自绘样式，
   不使用系统 `select` / `checkbox` / 原生确认框。
+- 焦点环只在键盘操作时出现：窗口被托盘单击唤回后，Chromium 会把焦点还给上一个被点过的头部图标，
+  并画出 `:focus-visible` 边框（看起来像「语言按钮莫名高亮」）。渲染层记录输入模态 ——
+  `keydown` 置为键盘、`pointerdown` 置为指针，窗口重新 `focus` 时若处于指针模态就把 `.bar` 里的
+  焦点 `blur()` 掉；输入框等其它位置不受影响，键盘导航照常保留焦点环。
+  `scripts/probe-focus-ring.mjs` 用 CDP 钉住这个行为（指针重聚焦 → 焦点回 `body`，键盘重聚焦 → 保留）。
 - 外链统一走主进程 `app:open-external`，只允许官网、仓库、开发者主页、开发者邮箱，
   以及 Node.js 官方下载页的两个精确路径（`/zh-cn/download`、`/en/download`），避免任意 URL 被利用。
 - 发现新版本时弹应用内确认框，确认后用系统浏览器打开官网下载页。
@@ -306,9 +313,9 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 | 产物 | 命令 | 说明 |
 | --- | --- | --- |
-| dsh-ready-1.0.13-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
-| dsh-ready-1.0.13-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
-| dsh-ready-1.0.13-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
+| dsh-ready-1.0.14-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
+| dsh-ready-1.0.14-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
+| dsh-ready-1.0.14-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
 
 - 交叉构建：Apple Silicon 上打 Intel 包时，electron-builder 自动下载 x64 版 Electron，产物是可运行的 x86_64 应用。
 - 三个平台都只检测用户环境里的 Node/npm，不自动安装或修改；缺失或版本不满足要求时显示本地化的 Node.js 官网安装链接。

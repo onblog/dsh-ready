@@ -1,7 +1,7 @@
 {
   "name": "dsh-ready",
   "productName": "DSH 就位",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "private": true,
   "description": "DeepSeek Harness 的桌面启动器：一键安装、启动、停止、日志、升级、卸载。A tiny desktop launcher for DeepSeek Harness.",
   "type": "module",
@@ -17,7 +17,8 @@
     "dist:win": "electron-builder --win nsis --x64 --config electron-builder.config.mjs",
     "dist:linux": "electron-builder --linux AppImage --x64 --config electron-builder.config.mjs",
     "sandbox": "bash scripts/sandbox-test.sh",
-    "shots": "node scripts/capture-screenshots.mjs"
+    "shots": "node scripts/capture-screenshots.mjs",
+    "probe:focus": "node scripts/probe-focus-ring.mjs"
   },
   "author": "Martin",
   "license": "AGPL-3.0-only",

@@ -223,9 +223,11 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
     never the colour app icon `.resize()`d: an illustration at 16–18px turns into a smear, and
     `resize()` also drops the `@2x` representation and leaves a 1x bitmap to be upscaled on Retina.
     `nativeImage.createFromPath()` picks up the `@2x` sibling automatically, so no scaling happens here.
-  - **Windows / Linux keep the colour icon** (`app-icon.png` downscaled to 16px): left click restores
-    the window, right click opens the menu. macOS opens the menu on any click, so no `click` handler
-    is bound there — otherwise the menu and the window would both pop up.
+  - **Windows / Linux keep the colour icon** (`app-icon.png` downscaled to 16px).
+  - **One click returns to the main window** on every platform, and `double-click` is deliberately not
+    bound. On macOS an attached `setContextMenu` menu pops on *any* click and swallows that first
+    click, so the menu is pushed with `popUpContextMenu` on the right button only and the left click
+    stays with `click` -> restore the window.
 - Dock icon (macOS only): **off by default** — the launcher lives in the menu bar and keeps the Dock
   free; the row is disabled with a "macOS only" note on Windows / Linux. The switch calls
   `app.dock.hide()` / `show()`, compares against `isVisible()` first and re-checks 1.1s later, because
@@ -254,6 +256,13 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
   `DSH_READY_NO_TELEMETRY=1` environment variable remains the hard kill switch.
 - Every control is custom-drawn (button + `aria-checked`, styled text fields); native `select`,
   `checkbox` and browser dialogs are never used.
+- Focus rings only appear for keyboard input: after a tray click brings the window back, Chromium
+  restores focus to the header icon that was clicked last and paints its `:focus-visible` ring, which
+  reads as the language button lighting up on its own. The renderer tracks the input modality —
+  `keydown` marks keyboard, `pointerdown` marks pointer — and on a window `focus` in pointer modality
+  it blurs whatever holds focus inside `.bar`; fields elsewhere keep their focus, and keyboard
+  navigation still shows rings. `scripts/probe-focus-ring.mjs` pins this behaviour over CDP
+  (pointer refocus -> focus returns to `body`, keyboard refocus -> the button keeps focus).
 - All external links go through the main process (`app:open-external`) with an allowlist of the
   site, the repository, the developer profile, the developer email, and the two exact Node.js
   download paths (`/zh-cn/download`, `/en/download`).
@@ -267,9 +276,9 @@ macOS Apple Silicon (arm64), macOS Intel (x64) and Windows (x64).
 
 | Artifact | Command | Notes |
 | --- | --- | --- |
-| `dsh-ready-1.0.13-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
-| `dsh-ready-1.0.13-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
-| `dsh-ready-1.0.13-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
+| `dsh-ready-1.0.14-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
+| `dsh-ready-1.0.14-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
+| `dsh-ready-1.0.14-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
 
 - Cross-builds download the matching Electron build; Intel/Windows packaging works on
   an Apple Silicon Mac without Wine.
