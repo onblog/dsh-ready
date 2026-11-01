@@ -1,9 +1,9 @@
 {
-  "version": "1.0.12",
+  "version": "1.0.13",
   "released_at": "2026-11-01",
   "files": {
-    "arm64":  { "key": "dsh-ready/releases/dsh-ready-1.0.12-arm64.dmg", "name": "dsh-ready-1.0.12-arm64.dmg", "size": 127021285 },
-    "x64":    { "key": "dsh-ready/releases/dsh-ready-1.0.12-x64.dmg", "name": "dsh-ready-1.0.12-x64.dmg", "size": 134105144 },
-    "win-x64": { "key": "dsh-ready/releases/dsh-ready-1.0.12-x64.exe", "name": "dsh-ready-1.0.12-x64.exe", "size": 125421775 }
+    "arm64":  { "key": "dsh-ready/releases/dsh-ready-1.0.13-arm64.dmg", "name": "dsh-ready-1.0.13-arm64.dmg", "size": 127022133 },
+    "x64":    { "key": "dsh-ready/releases/dsh-ready-1.0.13-x64.dmg", "name": "dsh-ready-1.0.13-x64.dmg", "size": 134105997 },
+    "win-x64": { "key": "dsh-ready/releases/dsh-ready-1.0.13-x64.exe", "name": "dsh-ready-1.0.13-x64.exe", "size": 125422204 }
   }
 }
