@@ -282,14 +282,14 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
     任意点击时弹菜单、把这一次单击吃掉，所以那里只在**右键**用 `popUpContextMenu` 推菜单，
     左键留给 `click` → 唤起窗口。
 - 显示 Dock 图标（仅 macOS）：**默认关闭** —— 启动器常驻菜单栏，不占用 Dock 位；Windows / Linux
-  上该行禁用并标注「仅 macOS 可用」。开关走 `app.dock.hide()` / `show()`，先用 `isVisible()` 比对期望值，
+  上整行不渲染（`row[hidden]`，连 tab 焦点一起消失）。开关走 `app.dock.hide()` / `show()`，先用 `isVisible()` 比对期望值，
   再在 1.1 秒后复核一次：Electron 文档明确 `dock.hide()` 对 1 秒内的连续调用是 no-op，快速连点时
   否则会留下 Dock 与设置不一致。Dock 隐藏后 macOS 把进程当作配件（`lsappinfo` 里 `type="UIElement"`），
   所以菜单栏唤起窗口时额外调 `app.focus({ steal: true })`，避免窗口开在别的应用后面；
   托盘与 Dock 都关掉时仍可从访达再点一次应用，第二个实例会唤出已有主窗口。
 - 阻止空闲休眠（仅 macOS）：**默认开启** —— 启动 DSH 时用 `caffeinate -i` 包住 `dsh web`，
-  合盖之外的空闲睡眠不会再打断跑着的会话；Windows / Linux 上该行禁用并标注「仅 macOS 可用」，
-  开关显示为关闭（应用在这两个平台确实做不到，不假装开着）。这个设置只在启动时读取，
+  合盖之外的空闲睡眠不会再打断跑着的会话；Windows / Linux 上整行不渲染 —— 做不到的开关不放出来，
+  既不占位也不假装开着。这个设置只在启动时读取，
   切换后立即写盘；若此刻有就位启动的 DSH 在跑，主进程返回 `restartRequired: true`，界面弹应用内
   确认框：「立即重启」走 `dsh:restart`（停 → 起，状态显示 `restarting`），「取消」不保留改动，
   `preventSleep` 回滚到原值并把焦点还给开关；DSH 没在跑时直接保存，下次启动生效，不弹任何框。
@@ -326,9 +326,9 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 | 产物 | 命令 | 说明 |
 | --- | --- | --- |
-| dsh-ready-1.0.15-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
-| dsh-ready-1.0.15-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
-| dsh-ready-1.0.15-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
+| dsh-ready-1.0.16-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
+| dsh-ready-1.0.16-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
+| dsh-ready-1.0.16-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
 
 - 交叉构建：Apple Silicon 上打 Intel 包时，electron-builder 自动下载 x64 版 Electron，产物是可运行的 x86_64 应用。
 - 三个平台都只检测用户环境里的 Node/npm，不自动安装或修改；缺失或版本不满足要求时显示本地化的 Node.js 官网安装链接。

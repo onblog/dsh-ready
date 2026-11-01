@@ -60,9 +60,9 @@ const els = {
   openInBrowser: $('openInBrowser'),
   showTray: $('showTray'),
   showDock: $('showDock'),
-  showDockNote: $('showDockNote'),
+  showDockRow: $('showDockRow'),
   preventSleep: $('preventSleep'),
-  preventSleepNote: $('preventSleepNote'),
+  preventSleepRow: $('preventSleepRow'),
   themeSeg: $('themeSeg'),
   langSeg: $('langSeg'),
   registrySeg: $('registrySeg'),
@@ -934,26 +934,23 @@ function setSwitch(button, on) {
   button.setAttribute('aria-checked', on ? 'true' : 'false')
 }
 
-/** The Dock row is macOS-only: other platforms get it disabled with the reason spelled out. */
+/**
+ * macOS-only rows are not rendered at all elsewhere: a switch that can never be flipped is
+ * noise, not information. `display:none` via [hidden] also keeps them out of the tab order.
+ */
 function renderShowDock() {
   const supported = Boolean(appInfo?.dock?.supported)
+  els.showDockRow.hidden = !supported
   setSwitch(els.showDock, Boolean(settings?.showDock))
   els.showDock.disabled = !supported
-  els.showDockNote.hidden = supported
-  els.showDockNote.textContent = supported ? '' : t('sheet.showDockMacOnly')
 }
 
-/**
- * "Prevent idle sleep" is macOS-only too, and it is applied when DSH is spawned rather
- * than live. On other platforms the row reads off + disabled: the switch never claims
- * something the app cannot do there.
- */
+/** macOS only, and applied when DSH is spawned rather than live (see the click handler below). */
 function renderPreventSleep() {
   const supported = Boolean(appInfo?.preventSleep?.supported)
-  setSwitch(els.preventSleep, supported && settings?.preventSleep !== false)
+  els.preventSleepRow.hidden = !supported
+  setSwitch(els.preventSleep, settings?.preventSleep !== false)
   els.preventSleep.disabled = !supported
-  els.preventSleepNote.hidden = supported
-  els.preventSleepNote.textContent = supported ? '' : t('sheet.preventSleepMacOnly')
 }
 
 /** Paint every control from the settings snapshot; called on open, after every write and on language change. */

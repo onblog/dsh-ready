@@ -241,7 +241,7 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
     click, so the menu is pushed with `popUpContextMenu` on the right button only and the left click
     stays with `click` -> restore the window.
 - Dock icon (macOS only): **off by default** — the launcher lives in the menu bar and keeps the Dock
-  free; the row is disabled with a "macOS only" note on Windows / Linux. The switch calls
+  free; on Windows / Linux the row is not rendered at all (`row[hidden]`, out of the tab order). The switch calls
   `app.dock.hide()` / `show()`, compares against `isVisible()` first and re-checks 1.1s later, because
   Electron documents `dock.hide()` as a no-op when another call happened within a second (otherwise a
   quick double-toggle leaves the Dock out of sync with the setting). With the Dock hidden macOS treats
@@ -257,7 +257,7 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
   explicit port, while IPv4 / dotted names / localhost / IPv6 may omit it; the port must be 1–65535.
 - Prevent idle sleep (macOS only): **on by default** — the launch is wrapped in `caffeinate -i`,
   so idle sleep (short of closing the lid) no longer interrupts a running session. On Windows /
-  Linux the row is disabled with "macOS only" and reads off: the app really cannot do it there.
+  Linux the row is not rendered at all: a switch that can never be flipped is noise.
   The value is read when DSH is spawned, so a toggle is written immediately and, when an
   app-managed DSH is running, the main process answers `restartRequired: true`; the sheet then
   raises the in-app confirm dialog — "Restart now" runs `dsh:restart` (stop → start, status
@@ -296,9 +296,9 @@ macOS Apple Silicon (arm64), macOS Intel (x64) and Windows (x64).
 
 | Artifact | Command | Notes |
 | --- | --- | --- |
-| `dsh-ready-1.0.15-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
-| `dsh-ready-1.0.15-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
-| `dsh-ready-1.0.15-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
+| `dsh-ready-1.0.16-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
+| `dsh-ready-1.0.16-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
+| `dsh-ready-1.0.16-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
 
 - Cross-builds download the matching Electron build; Intel/Windows packaging works on
   an Apple Silicon Mac without Wine.
