@@ -24,7 +24,7 @@ const messages = {
     'hero.kicker': '开源 · 个人免费 · 不采集隐私',
     'hero.tagline': '零基础小白，也能一键跑起 DeepSeek Harness',
     'hero.desc':
-      '下载、双击、点一下：装好、启动、升级全自动完成。不用装 Node，不用记命令，不用管端口，第一次用也能直接跑起来。',
+      '下载、双击、点一下：装好、启动、升级全自动完成。只要求 Node.js 22.18+（自带 npm），不用记命令，不用管端口，第一次用也能直接跑起来。',
     'hero.cta': '选择你的系统',
     'hero.source': '查看源码',
     'hero.chip.free': 'AGPL-3.0 开源',
@@ -74,7 +74,7 @@ const messages = {
     'features.sub': '安装、启动、停止、状态、日志、升级、卸载。',
     'features.install.title': '一次点击装好',
     'features.install.desc':
-      '没有 Node 也能装：自动用 nvm 装到 ~/.nvm 并写入 shell 配置，再用 npm 默认全局前缀安装 DSH，不需要 sudo。',
+      '装好 Node.js 22.18+（自带 npm）后，点一下装到 npm 默认全局前缀，不需要 sudo；缺少运行时不会动你的环境，直接给出官网下载链接。',
     'features.env.title': '和你终端里一模一样',
     'features.env.desc':
       '启动前读取登录 shell 环境，API Key、代理、PATH 都会带进去，不会出现「终端能跑、双击打不开」。',
@@ -145,7 +145,7 @@ const messages = {
     'hero.kicker': 'Open source · free for personal use · privacy first',
     'hero.tagline': 'Zero experience needed — DeepSeek Harness in one click',
     'hero.desc':
-      'Download, open, click once. Installation, startup and upgrades happen automatically — no Node, no commands, no ports to manage, even on a first try.',
+      'Download, open, click once. Installation, startup and upgrades happen automatically — all you need is Node.js 22.18+ with npm; no commands, no ports to manage, even on a first try.',
     'hero.cta': 'Choose your platform',
     'hero.source': 'View source',
     'hero.chip.free': 'AGPL-3.0 licensed',
@@ -197,7 +197,7 @@ const messages = {
     'features.sub': 'Install, start, stop, status, logs, upgrade, uninstall.',
     'features.install.title': 'Installed in one click',
     'features.install.desc':
-      'No Node needed. It installs Node 22 through nvm into ~/.nvm, wires it into your shell profile, and installs DSH into npm\'s default global prefix — no sudo.',
+      'With Node.js 22.18+ (npm included) it installs DSH into npm\'s default global prefix in one click — no sudo. A missing runtime gets an official download link instead of silent changes to your machine.',
     'features.env.title': 'Same environment as your terminal',
     'features.env.desc':
       'It reads your login shell environment before starting, so API keys, proxies and PATH come along. No more “works in the terminal, broken on double-click”.',
