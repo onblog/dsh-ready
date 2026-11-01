@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process'
 
 export const MIN_NODE_MAJOR = 22
 export const MIN_NODE_MINOR = 18
+/** The same floor as text, so user-facing messages never drift from the actual check. */
+export const MIN_NODE_TEXT = `${MIN_NODE_MAJOR}.${MIN_NODE_MINOR}`
 
 /** Parse a version string such as `v22.18.0`; returns null on failure. */
 export function parseNodeVersion(text) {

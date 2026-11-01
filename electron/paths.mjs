@@ -163,6 +163,17 @@ export function readSettings() {
   }
 }
 
+/**
+ * The single language rule: an explicit user choice wins, otherwise zh only when the
+ * runtime locale is Chinese. Callers pass their own locale source (Electron's app.getLocale
+ * in the main process, the ICU default elsewhere) so the rule itself lives in one place.
+ */
+export function resolveLanguage(locale) {
+  const stored = readSettings().lang
+  if (stored === 'zh' || stored === 'en') return stored
+  return String(locale ?? '').toLowerCase().startsWith('zh') ? 'zh' : 'en'
+}
+
 export function writeSettings(patch) {
   const next = { ...readSettings(), ...patch }
   try {

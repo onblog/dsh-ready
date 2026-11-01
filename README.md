@@ -100,8 +100,9 @@ All screenshots are captured from the real app running inside a sandbox, by
   argv whitelist, never a shell, with `--port` always dropped. Sponsor entry at the bottom.
 - **Your Node, your environment.** DSH Ready uses the Node and npm from your login
   shell. When Node is missing, older than 22.18, or has no npm, it does not modify
-  your environment and shows the official English Node.js download link. DSH itself
-  is installed with a plain `npm install -g`, never a private `--prefix`.
+  your environment and shows the localized Node.js download page (Chinese UI → the
+  zh-cn page, English UI → the English page). DSH itself is installed with a plain
+  `npm install -g`, never a private `--prefix`.
 
 ## Repository layout
 

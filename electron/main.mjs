@@ -7,6 +7,7 @@ import {
   isValidPort,
   normalizeProxy,
   parseDshArgs,
+  resolveLanguage,
   NPM_REGISTRIES,
 } from './paths.mjs'
 import { push, getLines, clearLines, onLine } from './logger.mjs'
@@ -34,11 +35,9 @@ import { reportLaunch, checkUpdate, canOpenExternally, SITE_URL, GITHUB_URL, DEV
 const THEMES = ['light', 'dark']
 const LANGS = ['zh', 'en']
 
-/** Language: an explicit user choice wins, otherwise infer from the system locale (zh always means Simplified). */
+/** Language: the shared rule (paths.resolveLanguage), fed with Electron's own locale. */
 function resolveLang() {
-  const stored = readSettings().lang
-  if (LANGS.includes(stored)) return stored
-  return String(app.getLocale()).toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  return resolveLanguage(app.getLocale())
 }
 /**
  * Launch at login is delegated to the OS login item. It only makes sense for the
@@ -87,6 +86,26 @@ function requestQuitFromTray() {
   }
 }
 
+/**
+ * The menu bar wants a monochrome template image at 18pt (with a @2x companion that
+ * nativeImage picks up from the same path); the colour app icon shrunk to 16px is unreadable,
+ * so it stays as the fallback only. Windows keeps the colour icon, downscaled as before.
+ */
+function trayIcon() {
+  const assets = join(import.meta.dirname, '..', 'renderer', 'assets')
+  if (process.platform === 'darwin') {
+    // No resize(): it would drop the @2x representation and leave a 1x bitmap to be upscaled.
+    const template = nativeImage.createFromPath(join(assets, 'trayTemplate.png'))
+    if (!template.isEmpty()) {
+      template.setTemplateImage(true)
+      return template
+    }
+  }
+  return nativeImage
+    .createFromPath(join(assets, 'app-icon.png'))
+    .resize({ width: 16, height: 16 })
+}
+
 /** Keep one native notification-area/menu-bar icon in sync with the persisted setting. */
 function syncTray() {
   if (!readSettings().showTray) {
@@ -95,15 +114,15 @@ function syncTray() {
     return
   }
   if (!tray) {
-    const size = process.platform === 'darwin' ? 18 : 16
-    const icon = nativeImage
-      .createFromPath(join(import.meta.dirname, '..', 'renderer', 'assets', 'app-icon.png'))
-      .resize({ width: size, height: size })
-    tray = new Tray(icon)
-    tray.setToolTip(resolveLang() === 'zh' ? 'DSH 就位' : 'DSH Ready')
-    tray.on('click', showMainWindow)
-    tray.on('double-click', showMainWindow)
+    tray = new Tray(trayIcon())
+    // Windows/Linux: left click brings the window back, the menu is the right-click one.
+    // macOS shows the context menu on any click, so binding click too would also pop the window.
+    if (process.platform !== 'darwin') {
+      tray.on('click', showMainWindow)
+      tray.on('double-click', showMainWindow)
+    }
   }
+  tray.setToolTip(resolveLang() === 'zh' ? 'DSH 就位' : 'DSH Ready')
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: resolveLang() === 'zh' ? '显示主窗口' : 'Show main window', click: showMainWindow },
     { type: 'separator' },

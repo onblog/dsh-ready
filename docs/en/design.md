@@ -201,7 +201,7 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
   never wrapped), three groups of settings, and a "Buy me a coffee" button at the bottom.
   Licence and commercial-licensing copy are no longer shown.
 - Settings groups (fixed order):
-  - **General**: launch at login, DSH port, open the browser after start, theme, language.
+  - **General**: launch at login, DSH port, open the browser after start, system tray icon, theme, language.
   - **Network**: npm registry (auto / official / mirror), HTTP(S) proxy, extra DSH arguments.
   - **Privacy & updates**: anonymous launch report, daily update check, manual check button.
 - The port has exactly one entry point: the "DSH port" row in the sheet. The main window shows it
@@ -211,6 +211,20 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
   Installed macOS / Windows builds only; Linux and development mode disable it with a note.
 - Open the browser after start: off by default. When off, `--no-open` is appended to the launch
   command; when on, DSH opens the browser itself.
+- System tray / menu-bar icon: on by default, switchable off from the sheet (switching off destroys
+  the icon instead of leaving a gap). The menu holds "Show main window" and "Quit" only; quitting
+  still goes through the in-app confirmation sheet, and the tooltip plus menu labels follow the
+  language switch.
+  - **macOS uses a monochrome template image** — `renderer/assets/trayTemplate.png` at 18pt plus the
+    matching `@2x` at 36pt, both rasterised from one drawing, with `setTemplateImage(true)` so the
+    system tints it for a light or dark menu bar. The artwork is DSH's own whale mark (`FISH_LOGO_PATH`
+    from `@deepseek-ai/dsh-client-ui-primitives`, viewBox 23.16×17.04) — not a hand-drawn glyph, and
+    never the colour app icon `.resize()`d: an illustration at 16–18px turns into a smear, and
+    `resize()` also drops the `@2x` representation and leaves a 1x bitmap to be upscaled on Retina.
+    `nativeImage.createFromPath()` picks up the `@2x` sibling automatically, so no scaling happens here.
+  - **Windows / Linux keep the colour icon** (`app-icon.png` downscaled to 16px): left click restores
+    the window, right click opens the menu. macOS opens the menu on any click, so no `click` handler
+    is bound there — otherwise the menu and the window would both pop up.
 - npm registry: `auto` keeps the original two-registry speed test; `official` / `mirror` pin one and
   skip the test. Switching clears the registry cache and re-reads the latest version.
 - HTTP(S) proxy: written only into the npm / DSH child environment (`HTTP_PROXY`, `HTTPS_PROXY`,
@@ -232,7 +246,8 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
 - Every control is custom-drawn (button + `aria-checked`, styled text fields); native `select`,
   `checkbox` and browser dialogs are never used.
 - All external links go through the main process (`app:open-external`) with an allowlist of the
-  site, the repository, the developer profile and the developer email.
+  site, the repository, the developer profile, the developer email, and the two exact Node.js
+  download paths (`/zh-cn/download`, `/en/download`).
 - A newer version opens an in-app confirm dialog, then the system browser on the download page.
 - The sheet is 400px wide with `max-height: calc(100vh - 44px)` and scrolls internally, so the
   window keeps its size.
@@ -243,9 +258,9 @@ macOS Apple Silicon (arm64), macOS Intel (x64) and Windows (x64).
 
 | Artifact | Command | Notes |
 | --- | --- | --- |
-| `dsh-ready-1.0.9-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
-| `dsh-ready-1.0.9-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
-| `dsh-ready-1.0.9-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
+| `dsh-ready-1.0.12-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
+| `dsh-ready-1.0.12-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
+| `dsh-ready-1.0.12-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
 
 - Cross-builds download the matching Electron build; Intel/Windows packaging works on
   an Apple Silicon Mac without Wine.

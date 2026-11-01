@@ -255,7 +255,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
   开发者信息严格一行（👤 Martin · ✉ 邮箱 · GitHub · 官网，10.5px 可点击），不换行、超出裁切；
   下面是三组设置，底部是「请我喝杯咖啡」。不再展示开源协议与商业授权信息。
 - 设置项（三组，顺序固定）：
-  - **常规**：开机自启动、DSH 端口、启动后自动打开浏览器、主题、语言。
+  - **常规**：开机自启动、DSH 端口、启动后自动打开浏览器、系统托盘图标、主题、语言。
   - **网络**：npm 源（自动 / 官方 / 镜像）、HTTP(S) 代理、DSH 附加启动参数。
   - **隐私与更新**：匿名启动上报、自动检查更新、检查更新。
 - 端口只有一个入口：设置页的「DSH 端口」。主界面端口改为只读展示（`span`，不再是可点击按钮），
@@ -263,6 +263,15 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 - 开机自启动：`role="switch"` 自绘开关，主进程调 `app.setLoginItemSettings`；
   仅安装版 macOS / Windows 可用，Linux 与开发模式禁用并在开关下方给出说明。
 - 启动后自动打开浏览器：默认关闭。关闭时启动命令追加 `--no-open`，开启则由 DSH 自己拉起浏览器。
+- 系统托盘 / 菜单栏图标：默认开启，可在设置里关掉（关掉即销毁图标，不留空位）。菜单只有
+  「显示主窗口」与「退出」两项，退出仍走应用内自绘确认框；tooltip 与菜单文案跟随语言切换。
+  - **macOS 用单色模板图**（`renderer/assets/trayTemplate.png` 18pt + 同名 `@2x` 36pt，由同一份
+    矢量栅格化，`setTemplateImage(true)` 让系统按菜单栏明暗自动着色）。图案就是 DSH 官方鲸鱼 mark
+    （`@deepseek-ai/dsh-client-ui-primitives` 的 `FISH_LOGO_PATH`，viewBox 23.16×17.04），不自己另画、
+    也不拿彩色应用图标去 `.resize()`：立绘缩到 16–18px 是一团糊块，而且 `resize()` 会丢掉 `@2x` 表示、
+    在 Retina 上被二次放大。`nativeImage.createFromPath()` 会自动带上同目录的 `@2x` 变体，所以这里不做缩放。
+  - **Windows / Linux 保留彩色图标**（`app-icon.png` 缩到 16px），左键点击唤起主窗口、右键出菜单；
+    macOS 上「点任意键即出菜单」，因此不再额外绑 `click`，否则菜单和窗口会同时弹。
 - npm 源：`auto` 保留原有的双源测速；`official` / `mirror` 直接锁定，跳过测速。
   切换后清空源缓存并重新拉取最新版本。
 - HTTP(S) 代理：只写进 npm 与 DSH 子进程的 `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` / `NO_PROXY`，
@@ -279,8 +288,8 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
   `/api/release`；手动「检查更新」始终可用。环境变量 `DSH_READY_NO_TELEMETRY=1` 仍是硬关闭。
 - 所有切换控件均为自绘：分段控件与开关都是 `button` + `aria-checked`，文本输入框也是自绘样式，
   不使用系统 `select` / `checkbox` / 原生确认框。
-- 外链统一走主进程 `app:open-external`，只允许官网、仓库、开发者主页与开发者邮箱，
-  避免任意 URL 被利用。
+- 外链统一走主进程 `app:open-external`，只允许官网、仓库、开发者主页、开发者邮箱，
+  以及 Node.js 官方下载页的两个精确路径（`/zh-cn/download`、`/en/download`），避免任意 URL 被利用。
 - 发现新版本时弹应用内确认框，确认后用系统浏览器打开官网下载页。
 - 面板宽 400px、`max-height: calc(100vh - 44px)`，内容超出时卡片内部滚动，窗口尺寸不变。
 - 启动上报（`/api/ping`）只含随机会话级设备 ID 与版本号。
@@ -291,9 +300,9 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 | 产物 | 命令 | 说明 |
 | --- | --- | --- |
-| dsh-ready-1.0.9-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
-| dsh-ready-1.0.9-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
-| dsh-ready-1.0.9-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
+| dsh-ready-1.0.12-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
+| dsh-ready-1.0.12-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
+| dsh-ready-1.0.12-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
 
 - 交叉构建：Apple Silicon 上打 Intel 包时，electron-builder 自动下载 x64 版 Electron，产物是可运行的 x86_64 应用。
 - 三个平台都只检测用户环境里的 Node/npm，不自动安装或修改；缺失或版本不满足要求时显示本地化的 Node.js 官网安装链接。

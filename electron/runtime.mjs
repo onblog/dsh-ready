@@ -2,9 +2,9 @@ import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { isNodeVersionOk } from './exec.mjs'
+import { isNodeVersionOk, MIN_NODE_TEXT } from './exec.mjs'
 import { push } from './logger.mjs'
-import { proxyEnv, readSettings } from './paths.mjs'
+import { proxyEnv, resolveLanguage } from './paths.mjs'
 
 /**
  * Node / npm from the user environment.
@@ -154,9 +154,7 @@ const NODE_DOWNLOAD_URL = {
 }
 
 function runtimeLang() {
-  const selected = readSettings().lang
-  if (selected === 'zh' || selected === 'en') return selected
-  return Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  return resolveLanguage(Intl.DateTimeFormat().resolvedOptions().locale)
 }
 
 function missingRuntimeMessage(found) {
@@ -166,11 +164,11 @@ function missingRuntimeMessage(found) {
     : `[Installation link](${NODE_DOWNLOAD_URL.en})`
   if (lang === 'zh') {
     return found
-      ? `Node 版本低于 22.18 或缺少 npm，请手动安装最新版 Node.js LTS：${link}`
+      ? `Node 版本低于 ${MIN_NODE_TEXT} 或缺少 npm，请手动安装最新版 Node.js LTS：${link}`
       : `未检测到 Node 和 npm，请手动安装 Node.js LTS：${link}`
   }
   return found
-    ? `Node must be version 22.18 or newer and include npm. Install the latest Node.js LTS manually: ${link}`
+    ? `Node must be version ${MIN_NODE_TEXT} or newer and include npm. Install the latest Node.js LTS manually: ${link}`
     : `Node and npm were not found. Install Node.js LTS manually: ${link}`
 }
 
