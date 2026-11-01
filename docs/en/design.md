@@ -33,8 +33,8 @@ Exactly one DSH instance is managed at a time.
    "running (external)" and the user can stop it or take it over. DSH on other ports
    is never touched.
 6. Runtime → read Node/npm from the login shell and log both versions. When Node is
-   missing, older than 22.18 or ships without npm, benchmark the official and mirror sources, install nvm into
-   `~/.nvm`, install Node 22 as the default, and append the nvm init block to the shell profile.
+   missing, older than 22.18 or ships without npm, never modify the user's environment;
+   direct the user to the English Node.js download page for manual installation.
 7. Install → `npm install -g @deepseek-ai/dsh@<version>` into npm's default global
    prefix (writable for nvm/Homebrew user-level Node). No `--prefix`, no sudo.
 8. Start → `dsh web --no-open --port <port>`; a busy port is reported as an error
@@ -257,9 +257,8 @@ macOS Apple Silicon (arm64), macOS Intel (x64) and Windows (x64).
 - On Apple Silicon without Rosetta, the legacy NSIS bundle is an x86_64 `makensis` and
   cannot run, so `electron-builder.config.mjs` pins `toolsets.nsis = '1.2.1'`
   (unified bundle with a native arm64 entrypoint).
-- Node is installed by nvm into `~/.nvm` for the machine's architecture (official
-  source first, npmmirror as a fallback), never embedded in the installer. Windows
-  ships without auto-install and asks the user to install Node LTS first.
+- All three platforms only detect Node/npm in the user's environment and never install
+  or modify them. A missing or unsupported runtime shows the localized official Node.js download link.
 - All three platforms share `electron/` and `renderer/`; platform differences are:
 
 | Capability | macOS | Windows |

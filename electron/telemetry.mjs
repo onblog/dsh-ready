@@ -109,12 +109,15 @@ export async function checkUpdate({ force = false } = {}) {
   }
 }
 
-/** External link allowlist: this project's website and repository only, so it cannot be abused with arbitrary URLs. */
+/** External link allowlist: project links plus the two localized official Node.js download pages. */
 export function canOpenExternally(url) {
   try {
     const target = new URL(String(url))
     if (target.protocol === 'mailto:') return Boolean(DEVELOPER.email) && target.pathname === DEVELOPER.email
     if (target.protocol !== 'https:') return false
+    if (target.host === 'nodejs.org') {
+      return target.pathname === '/zh-cn/download' || target.pathname === '/en/download'
+    }
     const allowed = new Set([new URL(GITHUB_URL).host])
     if (SITE_URL) allowed.add(new URL(SITE_URL).host)
     return allowed.has(target.host)

@@ -13,7 +13,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 3. 识别 DSH → 使用用户环境里已安装的 dsh（npm 全局、Homebrew、nvm 等）。
 4. 端口 → 默认 3080，界面上的端口可点击修改并持久化；启动固定使用该端口。
 5. 检测外部实例 → 每 4 秒扫描系统里的 `dsh web` 进程，只认监听「目标端口」的实例；命中时状态显示「已运行（外部）」，可停止或一键接管重启，其它端口的 dsh 不接管。
-6. 运行时 → 读取登录 shell 的 Node/npm 并打印版本；缺 Node、版本低于 22.18 或缺 npm 时，先测速官方源与国内镜像，再用 nvm 安装 Node 22 到 `~/.nvm`，并把 nvm 初始化写入 shell 配置。
+6. 运行时 → 读取登录 shell 的 Node/npm 并打印版本；缺 Node、版本低于 22.18 或缺 npm 时，不自动修改用户环境，提示用户前往 Node.js 中文官网下载页手动安装。
 7. 安装 → `npm install -g @deepseek-ai/dsh@<版本>` 装到 npm 的默认全局前缀（nvm/Homebrew 的用户级 Node 都可写），不加 `--prefix`、不需要 sudo。
 8. 启动 → `dsh web --no-open --port <目标端口>`，端口被占用时直接报错并提示改端口；从日志解析带 token 的地址，就绪后用系统浏览器打开。
 9. 运行中 → stdout/stderr 实时流入日志面板并落盘；状态由进程存活 + HTTP 探测共同判定。
@@ -296,7 +296,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 | dsh-ready-1.0.9-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
 
 - 交叉构建：Apple Silicon 上打 Intel 包时，electron-builder 自动下载 x64 版 Electron，产物是可运行的 x86_64 应用。
-- Node 由 nvm 按当前机器架构安装到 `~/.nvm`（官方源优先，失败时自动切 npmmirror 镜像），不打进安装包；Windows 暂不自动安装，会提示先装 Node LTS。
+- 三个平台都只检测用户环境里的 Node/npm，不自动安装或修改；缺失或版本不满足要求时显示本地化的 Node.js 官网安装链接。
 - macOS 构建在 `afterPack` 钩子里用 `codesign --deep --force --sign -` 做 ad-hoc 签名
   （electron-builder 的 `identity` 留空）：Apple Silicon 直接可运行；未公证，带隔离属性
   的副本首次打开仍会被 Gatekeeper 拦一次，到「系统设置 → 隐私与安全性」点「仍要打开」。

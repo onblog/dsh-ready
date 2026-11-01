@@ -103,7 +103,8 @@ export function clearSystemDshCache() {
 /** npm's global prefix (npm's own default, no --prefix). */
 async function globalPrefix(runtime) {
   if (globalPrefixCache) return globalPrefixCache
-  const result = await run(runtime.npmPath, ['prefix', '-g'], {
+  const launcher = npmLauncher(runtime)
+  const result = await run(launcher.cmd, [...launcher.prefix, 'prefix', '-g'], {
     env: runtimeEnv(runtime),
     timeout: 20000,
   })
@@ -121,6 +122,17 @@ function globalBinDirs() {
 const BINARY_NAME = process.platform === 'win32' ? 'dsh.cmd' : 'dsh'
 
 function packageVersionAt(binaryPath) {
+  // npm creates a .cmd shim on Windows instead of a symlink into the package.
+  // Resolve the package directly from the global prefix next to that shim.
+  const globalManifest = join(dirname(binaryPath), 'node_modules', ...PACKAGE.split('/'), 'package.json')
+  if (process.platform === 'win32' && existsSync(globalManifest)) {
+    try {
+      const pkg = JSON.parse(readFileSync(globalManifest, 'utf8'))
+      if (pkg.name === PACKAGE && pkg.version) return pkg.version
+    } catch {
+      // Fall back to walking up from symlink targets on Unix.
+    }
+  }
   let current
   try {
     current = dirname(realpathSync(binaryPath))
@@ -162,7 +174,14 @@ export function findSystemDsh() {
     if (!existsSync(candidate)) continue
     const version = packageVersionAt(candidate)
     if (version) {
-      systemCache = { path: candidate, version }
+      const cliCandidate = process.platform === 'win32'
+        ? join(dir, 'node_modules', ...PACKAGE.split('/'), 'lib', 'bin.js')
+        : null
+      systemCache = {
+        path: candidate,
+        version,
+        cliPath: cliCandidate && existsSync(cliCandidate) ? cliCandidate : null,
+      }
       return systemCache
     }
   }
@@ -173,8 +192,16 @@ export function findSystemDsh() {
 /** The dsh in effect right now: user environment only, no private app-bundled copy any more. */
 export function resolveDsh() {
   const found = findSystemDsh()
-  if (found) return { path: found.path, version: found.version, source: 'system' }
+  if (found) return { ...found, source: 'system' }
   return null
+}
+
+/** Execute Windows' npm shim through Node directly; Unix keeps using the native bin/symlink. */
+export function dshLauncher(target, runtime) {
+  if (process.platform === 'win32' && target?.cliPath && existsSync(target.cliPath)) {
+    return { cmd: runtime.nodePath, prefix: [target.cliPath] }
+  }
+  return { cmd: target.path, prefix: [] }
 }
 
 /** The dsh version currently in effect in the user environment. */

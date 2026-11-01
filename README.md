@@ -34,7 +34,7 @@ cleaning up stray processes.
 
 | Thing | What happens |
 | --- | --- |
-| Install | Picks the version, uses your Node/npm (installing Node 22 via nvm into `~/.nvm` when missing), then installs DSH into npm's default global prefix — no sudo |
+| Install | Picks the version, checks your Node/npm, then installs DSH into npm's default global prefix — no sudo; a missing runtime gets an official download link |
 | Start | Reads your login shell environment, starts `dsh web` on your port, opens it in your browser |
 | Stop | Stops the process group it started, or the external instance you asked it to take over |
 | Status | Running / stopped / external instance / installing / upgrading, refreshed live |
@@ -52,9 +52,9 @@ It starts the official web UI in your system browser.
 
 | Platform | Installer | Notes |
 | --- | --- | --- |
-| macOS Apple Silicon | `dsh-ready-1.0.11-arm64.dmg` | M1 / M2 / M3 / M4 |
-| macOS Intel | `dsh-ready-1.0.11-x64.dmg` | Intel-based Macs |
-| Windows x64 | `dsh-ready-1.0.11-x64.exe` | Windows 10 / 11 |
+| macOS Apple Silicon | `dsh-ready-1.0.12-arm64.dmg` | M1 / M2 / M3 / M4 |
+| macOS Intel | `dsh-ready-1.0.12-x64.dmg` | Intel-based Macs |
+| Windows x64 | `dsh-ready-1.0.12-x64.exe` | Windows 10 / 11 |
 
 Grab them from **[dsh.wordtk.com](https://dsh.wordtk.com)** — the installers live on R2
 and the site always serves the newest version.
@@ -94,15 +94,14 @@ All screenshots are captured from the real app running inside a sandbox, by
   main window); a busy port is reported instead of silently shifted, so the address you see is real.
 - **Settings in one place.** The header is four icons — language (文A), theme, settings, quit.
   The settings sheet is grouped: general (launch at login, DSH port, open the browser after
-  start, theme, language), network (npm registry auto/official/mirror, HTTP(S) proxy, extra DSH
+  start, system tray icon, theme, language), network (npm registry auto/official/mirror, HTTP(S) proxy, extra DSH
   arguments) and privacy & updates (anonymous launch report, daily check, manual check). The port
   is edited only there — the main window shows it read-only — and extra arguments go through an
   argv whitelist, never a shell, with `--port` always dropped. Sponsor entry at the bottom.
 - **Your Node, your environment.** DSH Ready uses the Node and npm from your login
-  shell. When Node is missing (or older than 22.18, or has no npm), it benchmarks the official and the China mirror, installs nvm
-  into `~/.nvm`, installs Node 22 as the default, and appends the nvm init block to
-  your shell profile. DSH itself is installed with a plain `npm install -g`, never a
-  private `--prefix`.
+  shell. When Node is missing, older than 22.18, or has no npm, it does not modify
+  your environment and shows the official English Node.js download link. DSH itself
+  is installed with a plain `npm install -g`, never a private `--prefix`.
 
 ## Repository layout
 

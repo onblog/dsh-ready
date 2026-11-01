@@ -932,6 +932,14 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
   color: var(--ok);
 }
 
+.hint a,
+.log a {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .log .placeholder {
   color: var(--ink-3);
 }

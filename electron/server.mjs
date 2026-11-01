@@ -3,7 +3,7 @@ import { createConnection } from 'node:net'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import http from 'node:http'
-import { resolveDsh } from './dsh.mjs'
+import { dshLauncher, resolveDsh } from './dsh.mjs'
 import { ensureRuntime, runtimeEnv } from './runtime.mjs'
 import { readSettings, parseDshArgs } from './paths.mjs'
 import { push } from './logger.mjs'
@@ -100,7 +100,8 @@ export async function start(targetPort) {
   args.push('--port', String(desired), ...extra.args)
 
   push(`启动 DSH（端口 ${desired}${extra.args.length ? `，附加参数 ${extra.args.join(' ')}` : ''}）`)
-  child = spawn(target.path, args, {
+  const launcher = dshLauncher(target, runtime)
+  child = spawn(launcher.cmd, [...launcher.prefix, ...args], {
     cwd: homedir(),
     env,
     detached: process.platform !== 'win32',

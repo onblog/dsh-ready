@@ -3,7 +3,7 @@ import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { dshHomeDir } from './paths.mjs'
-import { PACKAGE, resolveDsh } from './dsh.mjs'
+import { dshLauncher, PACKAGE, resolveDsh } from './dsh.mjs'
 import { compareVersions } from './semver.mjs'
 import { checkDshPeers, describeMismatch, peerText, pickCompatibleVersion } from './peer.mjs'
 import { ensureRuntime, findExecutable, npmLauncher, runtimeEnv, searchPaths, spawnAsync } from './runtime.mjs'
@@ -245,9 +245,10 @@ export async function uninstallProfilePlugins(profile = 'web') {
 
   push(`卸载第三方插件：${names.join('、')}`)
   const runtime = await ensureRuntime()
+  const launcher = dshLauncher(target, runtime)
   const result = await spawnAsync(
-    target.path,
-    ['plugin', '--profile', profile, 'remove', ...names],
+    launcher.cmd,
+    [...launcher.prefix, 'plugin', '--profile', profile, 'remove', ...names],
     { cwd: profileDir(profile), env: runtimeEnv(runtime), timeout: 600000 },
   )
   if (result.code !== 0) {
@@ -351,8 +352,9 @@ export async function applyUpgradePlan(plan) {
 
   const target = resolveDsh()
   if (!target) throw new Error('升级后未找到 dsh 可执行文件，请查看日志')
+  const dsh = dshLauncher(target, runtime)
   push(`执行：dsh ${plan.pluginArgs.join(' ')}`)
-  const pluginResult = await spawnAsync(target.path, plan.pluginArgs, {
+  const pluginResult = await spawnAsync(dsh.cmd, [...dsh.prefix, ...plan.pluginArgs], {
     cwd: profileDir(plan.profile),
     env,
     timeout: 900000,

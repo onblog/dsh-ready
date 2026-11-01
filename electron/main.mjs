@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, nativeTheme, shell, Tray } from 'electron'
 import { join } from 'node:path'
 import {
   readSettings,
@@ -59,6 +59,7 @@ function readAutoLaunch() {
 }
 
 let mainWindow = null
+let tray = null
 let registry = null
 let latestCache = { value: null, at: 0 }
 let task = null
@@ -70,6 +71,44 @@ let quitConfirmed = false
 
 function broadcast(event) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('dsh:event', event)
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
+function requestQuitFromTray() {
+  showMainWindow()
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('dsh:event', { type: 'quit-request' })
+  }
+}
+
+/** Keep one native notification-area/menu-bar icon in sync with the persisted setting. */
+function syncTray() {
+  if (!readSettings().showTray) {
+    tray?.destroy()
+    tray = null
+    return
+  }
+  if (!tray) {
+    const size = process.platform === 'darwin' ? 18 : 16
+    const icon = nativeImage
+      .createFromPath(join(import.meta.dirname, '..', 'renderer', 'assets', 'app-icon.png'))
+      .resize({ width: size, height: size })
+    tray = new Tray(icon)
+    tray.setToolTip(resolveLang() === 'zh' ? 'DSH 就位' : 'DSH Ready')
+    tray.on('click', showMainWindow)
+    tray.on('double-click', showMainWindow)
+  }
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: resolveLang() === 'zh' ? '显示主窗口' : 'Show main window', click: showMainWindow },
+    { type: 'separator' },
+    { label: resolveLang() === 'zh' ? '退出' : 'Quit', click: requestQuitFromTray },
+  ]))
 }
 
 /** Refresh the "DSH started another way" detection result; returns whether it changed. */
@@ -382,6 +421,7 @@ function publicSettings() {
   return {
     port: settings.port,
     openInBrowser: settings.openInBrowser,
+    showTray: settings.showTray,
     telemetry: settings.telemetry,
     autoUpdateCheck: settings.autoUpdateCheck,
     npmRegistry: settings.npmRegistry,
@@ -397,6 +437,7 @@ ipcMain.handle('settings:set', async (_event, patch) => {
   const dropped = []
   if (patch && typeof patch === 'object') {
     if (typeof patch.openInBrowser === 'boolean') next.openInBrowser = patch.openInBrowser
+    if (typeof patch.showTray === 'boolean') next.showTray = patch.showTray
     if (typeof patch.telemetry === 'boolean') next.telemetry = patch.telemetry
     if (typeof patch.autoUpdateCheck === 'boolean') next.autoUpdateCheck = patch.autoUpdateCheck
     if (NPM_REGISTRIES.includes(patch.npmRegistry)) next.npmRegistry = patch.npmRegistry
@@ -420,6 +461,8 @@ ipcMain.handle('settings:set', async (_event, patch) => {
   const before = readSettings()
   writeSettings(next)
   const after = readSettings()
+
+  if (after.showTray !== before.showTray) syncTray()
 
   if (after.npmRegistry !== before.npmRegistry) {
     // The registry is cached process-wide: drop it and re-read the latest version.
@@ -500,6 +543,7 @@ ipcMain.handle('port:set', async (_event, value) => {
 ipcMain.handle('lang:set', async (_event, lang) => {
   const next = LANGS.includes(lang) ? lang : 'system'
   writeSettings({ lang: next })
+  syncTray()
   await emitState()
   return { ok: true, lang: resolveLang() }
 })
@@ -536,6 +580,7 @@ app.whenReady().then(async () => {
   await logToolchain()
   await primeGlobalPrefix().catch(() => null)
   createWindow()
+  syncTray()
   await refreshExternal()
   await emitState()
   // Launch reporting and the daily update check never block the UI: failures stay silent and do not disturb the user.

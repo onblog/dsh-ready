@@ -20,6 +20,8 @@ const DEFAULT_SETTINGS = {
   port: 3080,
   // Open the browser once DSH is up. Off by default: launching must never hijack the screen.
   openInBrowser: false,
+  // Show the notification-area/menu-bar icon. Users can disable it from settings.
+  showTray: true,
   // Anonymous launch reporting. The daily update check has its own switch.
   telemetry: true,
   autoUpdateCheck: true,
@@ -152,6 +154,7 @@ export function readSettings() {
     port: isValidPort(port) ? port : DEFAULT_SETTINGS.port,
     lang: stored.lang === 'zh' || stored.lang === 'en' || stored.lang === 'system' ? stored.lang : DEFAULT_SETTINGS.lang,
     openInBrowser: bool(stored.openInBrowser, DEFAULT_SETTINGS.openInBrowser),
+    showTray: bool(stored.showTray, DEFAULT_SETTINGS.showTray),
     telemetry: bool(stored.telemetry, DEFAULT_SETTINGS.telemetry),
     autoUpdateCheck: bool(stored.autoUpdateCheck, DEFAULT_SETTINGS.autoUpdateCheck),
     npmRegistry: NPM_REGISTRIES.includes(stored.npmRegistry) ? stored.npmRegistry : DEFAULT_SETTINGS.npmRegistry,

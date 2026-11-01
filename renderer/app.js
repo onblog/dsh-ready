@@ -58,6 +58,7 @@ const els = {
   portField: $('portField'),
   portNote: $('portNote'),
   openInBrowser: $('openInBrowser'),
+  showTray: $('showTray'),
   themeSeg: $('themeSeg'),
   langSeg: $('langSeg'),
   registrySeg: $('registrySeg'),
@@ -210,12 +211,32 @@ let logLines = []
 const ERROR_PATTERN = /error|failed|failure|失败|错误|超时|异常|denied|not found/i
 const OK_PATTERN = /完成|已就绪|已停止|校验通过/
 
+/** Render only the small Markdown link subset emitted by trusted app messages. */
+function renderInlineLinks(node, text) {
+  node.textContent = ''
+  const pattern = /\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g
+  let offset = 0
+  for (const match of String(text ?? '').matchAll(pattern)) {
+    node.append(document.createTextNode(text.slice(offset, match.index)))
+    const link = document.createElement('a')
+    link.href = match[2]
+    link.textContent = match[1]
+    link.addEventListener('click', (event) => {
+      event.preventDefault()
+      openExternal(match[2])
+    })
+    node.append(link)
+    offset = match.index + match[0].length
+  }
+  node.append(document.createTextNode(String(text ?? '').slice(offset)))
+}
+
 function decorate(text) {
   const line = document.createElement('div')
   line.className = 'line'
   if (ERROR_PATTERN.test(text)) line.classList.add('err')
   else if (OK_PATTERN.test(text)) line.classList.add('ok')
-  line.textContent = text
+  renderInlineLinks(line, text)
   return line
 }
 
@@ -282,7 +303,7 @@ function defaultHint(current) {
 
 function showHint() {
   if (noticeText) {
-    els.hint.textContent = noticeText
+    renderInlineLinks(els.hint, noticeText)
     els.hint.classList.toggle('err', noticeIsError)
     return
   }
@@ -890,6 +911,7 @@ function setSwitch(button, on) {
 function renderSettingsSheet() {
   if (!settings) return
   setSwitch(els.openInBrowser, Boolean(settings.openInBrowser))
+  setSwitch(els.showTray, settings.showTray !== false)
   setSwitch(els.telemetry, settings.telemetry !== false)
   setSwitch(els.autoUpdateCheck, settings.autoUpdateCheck !== false)
 
@@ -1109,6 +1131,7 @@ function bindSwitch(button, key) {
 }
 
 bindSwitch(els.openInBrowser, 'openInBrowser')
+bindSwitch(els.showTray, 'showTray')
 bindSwitch(els.telemetry, 'telemetry')
 bindSwitch(els.autoUpdateCheck, 'autoUpdateCheck')
 
