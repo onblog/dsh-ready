@@ -1048,9 +1048,27 @@ const UPDATE_NOTE_KEYS = {
   failed: 'sheet.updateFailed',
 }
 
+/** One sentence per failure reason: "check failed" alone hid a build-time omission, an env kill
+ *  switch and a dead network behind the same words. */
+const UPDATE_FAIL_KEYS = {
+  unconfigured: 'sheet.updateUnconfigured',
+  disabled: 'sheet.updateDisabled',
+  offline: 'sheet.updateOffline',
+  server: 'sheet.updateServer',
+}
+
 /** One state object drives the note, so switching language re-renders the current message instead of a stale one. */
-function renderUpdateNote(kind = updateNoteState.kind, version = updateNoteState.version) {
-  updateNoteState = { kind, version }
+function renderUpdateNote(
+  kind = updateNoteState.kind,
+  version = updateNoteState.version,
+  reason = updateNoteState.reason,
+) {
+  updateNoteState = { kind, version, reason }
+  if (kind === 'failed') {
+    const key = UPDATE_FAIL_KEYS[reason] || UPDATE_NOTE_KEYS.failed
+    els.updateNote.textContent = t(key, { status: version || '—' })
+    return
+  }
   const key = UPDATE_NOTE_KEYS[kind] || UPDATE_NOTE_KEYS.idle
   els.updateNote.textContent = t(key, { version: version || appInfo?.version || '—' })
 }
@@ -1108,7 +1126,7 @@ async function checkUpdates() {
     const result = await window.api.checkUpdate()
     if (!result?.ok) {
       els.updateBtn.textContent = t('update.failed')
-      renderUpdateNote('failed')
+      renderUpdateNote('failed', result?.status ? String(result.status) : '', result?.reason)
       return
     }
     if (result.hasUpdate) {

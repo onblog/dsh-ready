@@ -17,6 +17,7 @@
 import { app } from 'electron'
 import { readFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
+import { setDefaultResultOrder } from 'node:dns'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readSettings, writeSettings } from './paths.mjs'
@@ -43,6 +44,40 @@ export const DEVELOPER = { name: 'Martin', email: CONTACT_EMAIL, github: 'https:
 const RELEASE_URL = SITE_URL ? `${SITE_URL}/api/release` : ''
 const PING_URL = SITE_URL ? `${SITE_URL}/api/ping` : ''
 const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Own requests are the app's only outbound traffic, and they used to be brittle on slow home
+ * networks: an 8s hard timeout with no retry, and Node's resolver could pick a blackholed IPv6
+ * address and burn the whole budget (a browser works there because Chromium does Happy Eyeballs).
+ * Prefer IPv4 like curl/Chromium, allow more time, and retry once before calling it offline.
+ */
+const REQUEST_TIMEOUT_MS = 15_000
+const REQUEST_ATTEMPTS = 2
+const RETRY_DELAY_MS = 1200
+try {
+  setDefaultResultOrder('ipv4first')
+} catch {
+  // Older runtimes keep their default order; the longer timeout still covers it.
+}
+
+/** The error code worth showing a human: Node hides it inside `cause`. */
+function networkCode(error) {
+  return String(error?.cause?.code || error?.code || error?.name || 'network')
+}
+
+/** fetch() with the shared timeout and one retry; the caller decides what a failure means. */
+async function requestWithRetry(url, init = {}) {
+  let lastError
+  for (let attempt = 1; attempt <= REQUEST_ATTEMPTS; attempt += 1) {
+    try {
+      return await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
+    } catch (error) {
+      lastError = error
+      if (attempt < REQUEST_ATTEMPTS) await new Promise((done) => setTimeout(done, RETRY_DELAY_MS))
+    }
+  }
+  throw lastError
+}
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 /** The environment variable is the hard kill switch; the settings switch only covers launch reporting. */
@@ -67,11 +102,10 @@ function deviceId() {
 export async function reportLaunch() {
   if (!PING_URL || launchReportDisabled()) return
   try {
-    await fetch(PING_URL, {
+    await requestWithRetry(PING_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device: deviceId(), version: app.getVersion() }),
-      signal: AbortSignal.timeout(6000),
     })
   } catch {
     // A failed report must not affect any local feature.
@@ -85,28 +119,35 @@ export async function reportLaunch() {
 export async function checkUpdate({ force = false } = {}) {
   // A manual check is always allowed (unless the env kill switch is set); the daily
   // automatic one follows the "check automatically" switch.
-  if (envTelemetryDisabled() || !RELEASE_URL) return { ok: false, disabled: true }
+  // Two different reasons hid behind the same "disabled" flag: no baked origin, or the
+  // environment kill switch. The sheet now says which one it is.
+  if (!RELEASE_URL) return { ok: false, disabled: true, reason: 'unconfigured' }
+  if (envTelemetryDisabled()) return { ok: false, disabled: true, reason: 'disabled' }
   if (!force && readSettings().autoUpdateCheck === false) return { ok: false, disabled: true }
 
   const last = Number(readSettings().lastUpdateCheck) || 0
   if (!force && Date.now() - last < DAY_MS) return { ok: false, skipped: true }
   writeSettings({ lastUpdateCheck: Date.now() })
 
+  let response
   try {
-    const response = await fetch(RELEASE_URL, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(8000),
-    })
-    const payload = await response.json()
-    if (!payload?.ok) return { ok: false }
-
-    const current = app.getVersion()
-    const latest = String(payload.data.version || '')
-    const hasUpdate = Boolean(latest) && compareVersions(latest, current) > 0
-    return { ok: true, current, latest, hasUpdate, url: SITE_URL }
-  } catch {
-    return { ok: false, offline: true }
+    response = await requestWithRetry(RELEASE_URL, { headers: { Accept: 'application/json' } })
+  } catch (error) {
+    return { ok: false, offline: true, reason: 'offline', detail: networkCode(error) }
   }
+
+  let payload
+  try {
+    payload = await response.json()
+  } catch {
+    return { ok: false, reason: 'server', status: response.status }
+  }
+  if (!response.ok || !payload?.ok) return { ok: false, reason: 'server', status: response.status }
+
+  const current = app.getVersion()
+  const latest = String(payload.data.version || '')
+  const hasUpdate = Boolean(latest) && compareVersions(latest, current) > 0
+  return { ok: true, current, latest, hasUpdate, url: SITE_URL }
 }
 
 /** External link allowlist: project links plus the two localized official Node.js download pages. */

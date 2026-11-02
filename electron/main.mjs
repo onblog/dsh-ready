@@ -613,7 +613,17 @@ ipcMain.handle('app:auto-launch', async (_event, enabled) => {
   return { ok: true, ...state }
 })
 
-ipcMain.handle('app:check-update', async () => checkUpdate({ force: true }))
+ipcMain.handle('app:check-update', async () => {
+  const result = await checkUpdate({ force: true })
+  if (!result?.ok) {
+    // The sheet shows a reason too, but the log keeps the evidence (error code / HTTP status).
+    const detail = [result?.reason, result?.status ? `HTTP ${result.status}` : '', result?.detail || '']
+      .filter(Boolean)
+      .join(' ')
+    push(`检查更新失败：${detail || '未知原因'}`)
+  }
+  return result
+})
 
 ipcMain.handle('app:open-external', async (_event, url) => {
   if (!canOpenExternally(url)) return { ok: false }

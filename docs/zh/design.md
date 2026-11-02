@@ -307,6 +307,12 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
   绝不过 shell；`--port` / `-p` 一律丢弃（端口由设置项统一管理），被丢弃的 token 会显示在行内提示里。
 - 匿名启动上报与自动检查更新各有一个开关：上报开关只管 `/api/ping`；自动更新开关只管每天一次的
   `/api/release`；手动「检查更新」始终可用。环境变量 `DSH_READY_NO_TELEMETRY=1` 仍是硬关闭。
+- 网络容错（慢速/双栈网络的实测教训）：App 自身的两个请求（`/api/ping`、`/api/release`）共用
+  15 秒超时 + 一次重试，并在模块加载时把 DNS 解析顺序设为 `ipv4first`。原因是这类网络里 IPv6 的
+  AAAA 记录常常黑洞：浏览器靠 Happy Eyeballs 会立刻回落 IPv4（同一台机器 `curl` 4 秒能拿到 200），
+  而 Node 的 `fetch` 会死在 IPv6 连接上直到超时 —— 表现为「浏览器能下载、检查更新却失败」。
+- 失败原因分档，不再一律「检查失败」：未写入官网地址（打包缺 `SITE_URL`）、被环境变量关闭、
+  网络不可达（附错误码，如 `ETIMEDOUT`）、服务器异常（附 HTTP 状态码）；同一句话同时写进日志面板。
 - 所有切换控件均为自绘：分段控件与开关都是 `button` + `aria-checked`，文本输入框也是自绘样式，
   不使用系统 `select` / `checkbox` / 原生确认框。
 - 焦点环只在键盘操作时出现：窗口被托盘单击唤回后，Chromium 会把焦点还给上一个被点过的头部图标，
@@ -326,9 +332,9 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 | 产物 | 命令 | 说明 |
 | --- | --- | --- |
-| dsh-ready-1.0.16-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
-| dsh-ready-1.0.16-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
-| dsh-ready-1.0.16-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
+| dsh-ready-1.0.17-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
+| dsh-ready-1.0.17-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
+| dsh-ready-1.0.17-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
 
 - 交叉构建：Apple Silicon 上打 Intel 包时，electron-builder 自动下载 x64 版 Electron，产物是可运行的 x86_64 应用。
 - 三个平台都只检测用户环境里的 Node/npm，不自动安装或修改；缺失或版本不满足要求时显示本地化的 Node.js 官网安装链接。

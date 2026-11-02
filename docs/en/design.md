@@ -274,6 +274,15 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
 - Launch reporting and the daily update check have separate switches: the first covers `/api/ping`,
   the second the once-a-day `/api/release`; the manual check always works. The
   `DSH_READY_NO_TELEMETRY=1` environment variable remains the hard kill switch.
+- Network resilience (learned on a slow dual-stack home network): the two requests the app makes
+  itself (`/api/ping`, `/api/release`) share a 15s timeout plus one retry, and the DNS result order
+  is pinned to `ipv4first` at module load. On such networks an AAAA record is often a blackhole:
+  Chromium falls back to IPv4 via Happy Eyeballs (the same machine finished a `curl` in ~4s) while
+  Node's `fetch` never connects and dies on the timeout — which reads as "the browser can download,
+  but checking for updates fails".
+- Failures now say why instead of one generic "check failed": no site address baked in (build without
+  `SITE_URL`), disabled by an environment variable, unreachable network (with the error code, e.g.
+  `ETIMEDOUT`), or a server error (with the HTTP status). The same line goes to the log panel.
 - Every control is custom-drawn (button + `aria-checked`, styled text fields); native `select`,
   `checkbox` and browser dialogs are never used.
 - Focus rings only appear for keyboard input: after a tray click brings the window back, Chromium
@@ -296,9 +305,9 @@ macOS Apple Silicon (arm64), macOS Intel (x64) and Windows (x64).
 
 | Artifact | Command | Notes |
 | --- | --- | --- |
-| `dsh-ready-1.0.16-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
-| `dsh-ready-1.0.16-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
-| `dsh-ready-1.0.16-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
+| `dsh-ready-1.0.17-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
+| `dsh-ready-1.0.17-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
+| `dsh-ready-1.0.17-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
 
 - Cross-builds download the matching Electron build; Intel/Windows packaging works on
   an Apple Silicon Mac without Wine.
