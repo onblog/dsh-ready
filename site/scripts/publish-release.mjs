@@ -14,6 +14,7 @@
  * can download must not pile up.
  */
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -34,6 +35,21 @@ const TARGETS = {
 };
 
 const { version } = JSON.parse(fs.readFileSync(path.join(repoDir, 'package.json'), 'utf8'));
+
+/**
+ * Hash the installer while streaming it, so a 130 MB build never has to sit in
+ * memory. The digest lands in the manifest and the site verifies the assembled
+ * blob against it before letting the file through.
+ */
+function sha256Of(file) {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256');
+    fs.createReadStream(file)
+      .on('data', (chunk) => hash.update(chunk))
+      .on('end', () => resolve(hash.digest('hex')))
+      .on('error', reject);
+  });
+}
 
 /**
  * wrangler 4.144 on Node 25 finishes the work and then never exits (an open
@@ -146,7 +162,12 @@ async function main() {
     const name = nameOf(version);
     const file = path.join(releaseDir, name);
     if (!fs.existsSync(file)) throw new Error(`missing ${file}; build installers first`);
-    files[arch] = { key: `${KEY_PREFIX}releases/${name}`, name, size: fs.statSync(file).size };
+    files[arch] = {
+      key: `${KEY_PREFIX}releases/${name}`,
+      name,
+      size: fs.statSync(file).size,
+      sha256: await sha256Of(file),
+    };
   }
 
   for (const [arch, file] of Object.entries(files)) {

@@ -46,20 +46,24 @@ function fail(status, code, message) {
  * layer, then R2 (the source of truth). This keeps a busy download page from
  * hammering R2 and still lets a new release appear within a minute.
  */
-async function readManifest(env) {
+async function readManifest(env, { fresh = false } = {}) {
   const now = Date.now();
-  if (manifestCache.value && now - manifestCache.at < MANIFEST_TTL_MS) {
+  if (!fresh && manifestCache.value && now - manifestCache.at < MANIFEST_TTL_MS) {
     return manifestCache.value;
   }
 
-  try {
-    const warm = await env.KV.get(MANIFEST_KV_KEY, 'json');
-    if (warm) {
-      manifestCache = { value: warm, at: now };
-      return warm;
+  // `fresh` 跳过两层缓存直接读 R2：下载前的版本核对、以及发版瞬间，都不能被
+  // 几分钟前的旧清单糊弄，否则页面会拿着旧 size 去切新安装包。
+  if (!fresh) {
+    try {
+      const warm = await env.KV.get(MANIFEST_KV_KEY, 'json');
+      if (warm) {
+        manifestCache = { value: warm, at: now };
+        return warm;
+      }
+    } catch (error) {
+      console.error('[manifest] kv read failed', error);
     }
-  } catch (error) {
-    console.error('[manifest] kv read failed', error);
   }
 
   const object = await env.R2_RELEASES.get(MANIFEST_KEY);
@@ -90,7 +94,10 @@ function publicManifest(manifest) {
     files[arch] = {
       name: file.name,
       size: file.size ?? null,
-      url: `/api/download?arch=${arch}`,
+      // 前端拿它做最后一道校验：长度对、内容错（错位拼接）也能挡住。
+      sha256: file.sha256 ?? null,
+      // 版本号进 URL：发版后旧链接指向的字节不会被拼到新安装包里。
+      url: `/api/download?arch=${arch}&v=${encodeURIComponent(manifest.version)}`,
     };
   }
   return {
@@ -105,14 +112,13 @@ function safeFilename(name) {
   return base.replace(/[^\w.\-]+/g, '-');
 }
 
-async function handleRelease(env) {
-  const manifest = await readManifest(env);
+async function handleRelease(env, url) {
+  const manifest = await readManifest(env, { fresh: url?.searchParams.get('fresh') === '1' });
   if (!manifest) {
     return fail(503, 'release_unavailable', '安装包还在上传，请稍后再来 / Installers are not published yet.');
   }
-  return json(200, { ok: true, data: publicManifest(manifest) }, {
-    'Cache-Control': 'public, max-age=60',
-  });
+  // 版本号是强一致信息：缓存 60 秒会让页面拿着旧 size 去切新安装包。
+  return json(200, { ok: true, data: publicManifest(manifest) });
 }
 
 async function handleDownload(request, env, url) {
@@ -125,7 +131,22 @@ async function handleDownload(request, env, url) {
     return fail(400, 'bad_request', `未知的架构 / unknown arch: ${arch ?? ''} (${ARCHES.join(', ')})`);
   }
 
-  const manifest = await readManifest(env);
+  let manifest = await readManifest(env);
+
+  // 客户端带着版本号来下载时，必须和这一版的对象严格对应。否则会拿旧 size
+  // 去切新文件——拼出来的安装包少一截，用户只看到「文件已损坏」。
+  const wantedVersion = url.searchParams.get('v');
+  if (wantedVersion && manifest?.version !== wantedVersion) {
+    manifest = await readManifest(env, { fresh: true });
+    if (manifest?.version !== wantedVersion) {
+      return fail(
+        409,
+        'conflict',
+        `安装包已更新到 ${manifest?.version ?? '新版本'}，请刷新页面后重新下载 / Reload the page and try again`,
+      );
+    }
+  }
+
   const file = manifest?.files?.[arch];
   if (!manifest || !file?.key) {
     return fail(404, 'not_found', '当前版本没有这个平台的安装包 / no installer for this platform');
@@ -134,9 +155,19 @@ async function handleDownload(request, env, url) {
   // Only forward Range when the client asked for it, otherwise R2 may answer a
   // plain GET with a ranged object.
   const rangeHeader = request.headers.get('range');
+  const ifRange = request.headers.get('if-range');
+  let useRange = Boolean(rangeHeader);
+
+  // If-Range：浏览器续传时会带上它。对象已经换成新版本时必须回整包，让客户端
+  // 从头下，而不是把新版本的尾巴接到旧版本的前半截上。
+  if (useRange && ifRange) {
+    const head = await env.R2_RELEASES.head(file.key);
+    if (!head?.httpEtag || ifRange.trim() !== head.httpEtag) useRange = false;
+  }
+
   const object = await env.R2_RELEASES.get(
     file.key,
-    rangeHeader ? { range: request.headers } : undefined,
+    useRange ? { range: request.headers } : undefined,
   );
   if (!object) {
     return fail(404, 'not_found', '安装包文件不存在 / installer object is missing');
@@ -145,7 +176,8 @@ async function handleDownload(request, env, url) {
   const headers = new Headers();
   headers.set('Content-Type', 'application/octet-stream');
   headers.set('Content-Disposition', `attachment; filename="${safeFilename(file.name)}"`);
-  headers.set('Cache-Control', 'public, max-age=300');
+  // 安装包一律不进中间缓存：缓存跨版本是「下载到旧版 / 拼出坏包」的另一条来路。
+  headers.set('Cache-Control', 'no-store');
   headers.set('Accept-Ranges', 'bytes');
   headers.set('X-Version', manifest.version ?? '');
   if (object.httpEtag) headers.set('ETag', object.httpEtag);
@@ -155,7 +187,7 @@ async function handleDownload(request, env, url) {
 
   if (body === null) {
     status = 304;
-  } else if (rangeHeader && object.range) {
+  } else if (useRange && object.range) {
     // R2 reports a range even for plain GETs; gate 206 on the request header.
     status = 206;
     const offset = object.range.offset ?? 0;
@@ -288,7 +320,7 @@ async function handleStats(env) {
 }
 
 async function handleApi(request, env, url) {
-  if (url.pathname === '/api/release') return handleRelease(env);
+  if (url.pathname === '/api/release') return handleRelease(env, url);
   if (url.pathname === '/api/download') return handleDownload(request, env, url);
   if (url.pathname === '/api/ping') return handlePing(request, env);
   if (url.pathname === '/api/stats') return handleStats(env);

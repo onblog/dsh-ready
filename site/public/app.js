@@ -350,26 +350,41 @@ async function downloadInParallel(url, size, onProgress, signal) {
     const end = Math.min(start + chunkSize - 1, size - 1);
     if (start > end) return;
 
+    const expected = end - start + 1;
+
     for (let attempt = 0; attempt < 3; attempt += 1) {
+      const base = loaded; // 重试时把这轮算进进度的字节退回去
       try {
         const response = await fetch(url, {
           headers: { Range: `bytes=${start}-${end}` },
+          // 安装包不许走 HTTP 缓存：缓存里的旧字节拼进来就是坏包
+          cache: 'no-store',
           signal,
         });
         if (response.status !== 206) throw new Error(`unexpected status ${response.status}`);
 
         const reader = response.body.getReader();
         const buffers = [];
+        let received = 0;
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           buffers.push(value);
+          received += value.length;
           loaded += value.length;
           onProgress?.(loaded, size);
         }
+
+        // 连接被中途掐断时 reader 只会读到 EOF，不会抛错。不比对长度，缺一截的
+        // 碎片就会被拼进最终文件，用户双击安装包才看到「已损坏」。
+        if (received !== expected) {
+          throw new Error(`short chunk ${index}: ${received}/${expected}`);
+        }
+
         parts[index] = new Blob(buffers);
         return;
       } catch (error) {
+        loaded = base;
         if (error.name === 'AbortError') throw error;
         if (attempt === 2) throw error;
         await delay(400 * (attempt + 1));
@@ -378,7 +393,21 @@ async function downloadInParallel(url, size, onProgress, signal) {
   };
 
   await Promise.all(Array.from({ length: chunkCount }, (_, index) => fetchChunk(index)));
-  return new Blob(parts, { type: 'application/octet-stream' });
+
+  const blob = new Blob(parts, { type: 'application/octet-stream' });
+  // 每段都对过了，这里再对一次总量：任何一段被误判都会在这一步现形。
+  if (size && blob.size !== size) {
+    throw new Error(`short download: ${blob.size}/${size}`);
+  }
+  return blob;
+}
+
+/** 清单给了 sha256 就拿它做终校验：长度对、内容错（错位拼接）也能挡住。 */
+async function sha256Of(blob) {
+  const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 /** Save through a plain anchor: a file picker before the transfer is friction. */
@@ -487,15 +516,25 @@ function renderManifest() {
   }
 }
 
+async function fetchRelease({ fresh = false } = {}) {
+  const url = fresh ? `/api/release?fresh=1&ts=${Date.now()}` : '/api/release';
+  const response = await fetch(url, {
+    // 清单不进 HTTP 缓存：缓存里的旧 size 会让人按旧尺寸去切新文件。
+    cache: 'no-store',
+  });
+  const payload = await response.json();
+  if (!payload.ok || !payload.data) return null;
+  return payload.data;
+}
+
 async function loadRelease() {
   try {
-    const response = await fetch('/api/release');
-    const payload = await response.json();
-    if (!payload.ok) {
+    const data = await fetchRelease();
+    if (!data) {
       setStatus(t('download.unavailable'), true);
       return;
     }
-    manifest = payload.data;
+    manifest = data;
     renderManifest();
   } catch {
     setStatus(t('download.loadFailed'), true);
@@ -506,8 +545,21 @@ async function startDownload(arch) {
   if (activeDownload) activeDownload.abort();
 
   const card = cardFor(arch);
-  const file = manifest.files?.[arch];
   if (!card) return;
+
+  // 点之前再核对一次清单：页面可能还停在上一版，拿旧 size 切新安装包会拼出坏包。
+  // 刷新失败就退回页面上的数据，由长度与摘要校验兜底。
+  try {
+    const fresh = await fetchRelease({ fresh: true });
+    if (fresh) {
+      manifest = fresh;
+      renderManifest();
+    }
+  } catch {
+    /* 网络抖动：继续用页面上的清单 */
+  }
+
+  const file = manifest.files?.[arch];
 
   if (!file) {
     setStatus(t('download.unavailable'), true);
@@ -543,6 +595,14 @@ async function startDownload(arch) {
 
   try {
     const blob = await downloadInParallel(file.url, file.size, onProgress, controller.signal);
+
+    const expectedSha = String(file.sha256 ?? '').toLowerCase();
+    if (expectedSha) {
+      setStatus(`${t('download.progress')}…`);
+      const actual = await sha256Of(blob);
+      if (actual !== expectedSha) throw new Error(`checksum mismatch: ${actual}`);
+    }
+
     saveBlob(blob, file.name);
     // macOS builds are ad-hoc signed but not notarized: the first launch is
     // blocked once by Gatekeeper, so explain the exact allow steps right after
