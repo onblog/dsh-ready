@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('api', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (patch) => ipcRenderer.invoke('settings:set', patch),
   checkUpdate: () => ipcRenderer.invoke('app:check-update'),
+  readPermissions: () => ipcRenderer.invoke('perm:read'),
+  openPermissionSettings: (id) => ipcRenderer.invoke('perm:open', id),
   setAutoLaunch: (enabled) => ipcRenderer.invoke('app:auto-launch', enabled),
   openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
   quit: () => ipcRenderer.invoke('app:quit'),

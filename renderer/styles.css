@@ -16,6 +16,9 @@
   --accent-soft: rgba(47, 111, 143, 0.1);
   --ok: #2c7d6a;
   --warn: #9a6b1f;
+  /* Tinted discs behind the permission-state glyphs. */
+  --ok-soft: rgba(44, 125, 106, 0.12);
+  --warn-soft: rgba(154, 107, 31, 0.12);
   --danger: #a3483a;
   --primary-bg: #15202b;
   --primary-ink: #f7fafc;
@@ -41,6 +44,9 @@
   --accent-soft: rgba(121, 182, 214, 0.13);
   --ok: #6fbf9e;
   --warn: #d3a961;
+  /* Tinted discs behind the permission-state glyphs. */
+  --ok-soft: rgba(111, 191, 158, 0.14);
+  --warn-soft: rgba(211, 169, 97, 0.14);
   --danger: #d98878;
   --primary-bg: #e4edf4;
   --primary-ink: #0c1218;
@@ -1414,4 +1420,151 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
 .sponsor:focus-visible {
   outline: 2px solid var(--sponsor-ink);
   outline-offset: 2px;
+}
+
+/* ---------- System permissions (macOS only) ---------- */
+
+.perms-sheet {
+  /* Above the settings sheet: the report opens on top of it and closes back to it. */
+  z-index: 80;
+}
+
+.perms-card {
+  max-width: 380px;
+  padding: 20px 20px 16px;
+}
+
+.perms-head {
+  padding-right: 26px;
+}
+
+.perms-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.perms-summary {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--ink-2);
+}
+
+/* One segment per permission: the bar answers "how much is on?" before the rows are read. */
+.perms-meter {
+  display: flex;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.perms-meter i {
+  flex: 1;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  transition: background 160ms ease;
+}
+
+.perms-meter i[data-state='granted'] {
+  background: var(--ok);
+}
+
+.perms-list {
+  list-style: none;
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.perm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.perm:last-child {
+  border-bottom: 0;
+}
+
+.perm-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.perm-name {
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.perm-hint {
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+
+/* State chip: a drawn glyph in a tinted disc. Emoji are not an option — they ignore the
+   theme, and ✅ / ⚠️ arrive in three different optical sizes per platform. */
+.perm-state {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.perm-state[data-state='granted'] {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.perm-state[data-state='missing'],
+.perm-state[data-state='unknown'] {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.perm-ico {
+  display: none;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.perm-state[data-state='granted'] .perm-ico-ok,
+.perm-state[data-state='missing'] .perm-ico-warn,
+.perm-state[data-state='unknown'] .perm-ico-warn {
+  display: block;
+}
+
+.perms-note {
+  margin-top: 10px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.perms-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.perms-actions .btn {
+  height: 28px;
+  padding: 0 13px;
+  font-size: 11.5px;
 }

@@ -96,7 +96,8 @@ All screenshots are captured from the real app running inside a sandbox, by
   The settings sheet is grouped: general (launch at login, DSH port, open the browser after
   start, system tray icon, Dock icon on macOS, prevent idle sleep on macOS, theme, language),
   network (npm registry auto/official/mirror, HTTP(S) proxy, extra DSH arguments) and privacy &
-  updates (anonymous launch report, daily check, manual check). The port is edited only there —
+  updates (anonymous launch report, daily check, manual check, plus a macOS-only system-permission
+  report that deep-links into Privacy & Security). The port is edited only there —
   the main window shows it read-only — and extra arguments go through an argv whitelist, never a
   shell, with `--port` always dropped. Sponsor entry at the bottom.
 - **Your Node, your environment.** DSH Ready uses the Node and npm from your login

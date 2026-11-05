@@ -264,7 +264,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 - 设置项（三组，顺序固定）：
   - **常规**：开机自启动、DSH 端口、启动后自动打开浏览器、系统托盘图标、显示 Dock 图标、阻止空闲休眠、主题、语言。
   - **网络**：npm 源（自动 / 官方 / 镜像）、HTTP(S) 代理、DSH 附加启动参数。
-  - **隐私与更新**：匿名启动上报、自动检查更新、检查更新。
+  - **隐私与更新**：匿名启动上报、自动检查更新、检查更新、系统权限（仅 macOS）。
 - 端口只有一个入口：设置页的「DSH 端口」。主界面端口改为只读展示（`span`，不再是可点击按钮），
   DSH 正在运行或检测到外部实例时输入框锁定并提示「运行中不可修改」。
 - 开机自启动：`role="switch"` 自绘开关，主进程调 `app.setLoginItemSettings`；
@@ -307,6 +307,20 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
   绝不过 shell；`--port` / `-p` 一律丢弃（端口由设置项统一管理），被丢弃的 token 会显示在行内提示里。
 - 匿名启动上报与自动检查更新各有一个开关：上报开关只管 `/api/ping`；自动更新开关只管每天一次的
   `/api/release`；手动「检查更新」始终可用。环境变量 `DSH_READY_NO_TELEMETRY=1` 仍是硬关闭。
+- 系统权限检查（**仅 macOS**，Windows / Linux 整行不渲染）：行样式照抄「检查更新」——标签下是一行
+  「已开通 3/4 项」，右侧是「检测权限」按钮。按钮在设置页之上再叠一层自绘清单：左侧权限名 + 用途，
+  中间一枚状态徽标，右侧「打开设置」。徽标是画出来的字形（圆底 + 对勾 / 三角感叹号），不是 emoji：
+  ✅ 已开通走 `--ok`，⚠️ 未开通 / 无法检测走 `--warn`，顶部四段进度条一段一项。
+  「打开设置」用 `x-apple.systempreferences:` 深链直达对应面板
+  （`Privacy_Accessibility` / `Privacy_ScreenCapture` / `Privacy_AppBundles` / `Privacy_AllFiles`）。
+  四项检测**一律不弹系统框**（否则每次打开设置都糊一遍同样的授权弹窗）：辅助功能走
+  `systemPreferences.isTrustedAccessibilityClient(false)`，屏幕录制走 `getMediaAccessStatus('screen')`，
+  磁盘完全访问靠读一个 TCC 保护文件并校验真实 SQLite 头（macOS 15 上被拒的读取会返回 EOF 而不是抛错，
+  「没抛错」不算拿到权限）。App 管理没有 preflight API，而所有能证明它的操作（改权限、写别的 `.app`）
+  都会触发 TCC 弹窗，所以它的结论从 TCC 数据库读——而 TCC 数据库本身就在磁盘完全访问后面：没开那一项时
+  这一行如实显示第三种状态「需先开通磁盘完全访问」，不猜。
+- 权限清单在三个时机重测：打开设置时、点「重新检测」时、窗口重新获得焦点时。系统设置是另一个 App，
+  用户切回来正是结论变化的时刻，不该再要求手点一次。
 - 网络容错（慢速/双栈网络的实测教训）：App 自身的两个请求（`/api/ping`、`/api/release`）共用
   15 秒超时 + 一次重试，并在模块加载时把 DNS 解析顺序设为 `ipv4first`。原因是这类网络里 IPv6 的
   AAAA 记录常常黑洞：浏览器靠 Happy Eyeballs 会立刻回落 IPv4（同一台机器 `curl` 4 秒能拿到 200），

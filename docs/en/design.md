@@ -216,7 +216,7 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
 - Settings groups (fixed order):
   - **General**: launch at login, DSH port, open the browser after start, system tray icon, Dock icon, prevent idle sleep, theme, language.
   - **Network**: npm registry (auto / official / mirror), HTTP(S) proxy, extra DSH arguments.
-  - **Privacy & updates**: anonymous launch report, daily update check, manual check button.
+  - **Privacy & updates**: anonymous launch report, daily update check, manual check button, system permissions (macOS only).
 - The port has exactly one entry point: the "DSH port" row in the sheet. The main window shows it
   read-only (a `span`, no longer a button); the field is locked with a note while DSH is running or
   an external instance is detected.
@@ -274,6 +274,26 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
 - Launch reporting and the daily update check have separate switches: the first covers `/api/ping`,
   the second the once-a-day `/api/release`; the manual check always works. The
   `DSH_READY_NO_TELEMETRY=1` environment variable remains the hard kill switch.
+- System permissions (**macOS only**; the row is not rendered on Windows / Linux): it copies the
+  update row — "3/4 granted" under the label, a "Check" button on the right. The button stacks one
+  more in-app report over the sheet: permission name and purpose on the left, one state chip in the
+  middle, "Open Settings" on the right. The chip is a drawn glyph (tinted disc plus a check or a
+  warning triangle), never an emoji — granted uses `--ok`, missing / undetectable uses `--warn`, and
+  four meter segments at the top map one-to-one to the four rows. "Open Settings" is an
+  `x-apple.systempreferences:` deep link straight into `Privacy_Accessibility` /
+  `Privacy_ScreenCapture` / `Privacy_AppBundles` / `Privacy_AllFiles`.
+  No probe may raise a system dialog — the sheet re-runs them on every open, so a prompting probe
+  would greet the user with the same alert each time. Accessibility uses
+  `systemPreferences.isTrustedAccessibilityClient(false)`, Screen Recording
+  `getMediaAccessStatus('screen')`, and Full Disk Access is proven by reading a TCC-protected file
+  and matching the real SQLite header (on macOS 15 a denied read returns EOF instead of throwing, so
+  "it did not throw" is not a grant). App Management has no preflight API and every operation that
+  would prove it (chmod, writing inside another `.app`) triggers the TCC prompt, so its decision is
+  read out of the TCC database — which sits behind Full Disk Access; without that grant the row
+  reports the third state ("Needs Full Disk Access to detect") instead of guessing.
+- The report re-checks at three moments: when the sheet opens, on "Check again", and whenever the
+  window regains focus. System Settings is a separate app, and coming back is exactly when the answer
+  changes, so the user never has to press the button just to refresh.
 - Network resilience (learned on a slow dual-stack home network): the two requests the app makes
   itself (`/api/ping`, `/api/release`) share a 15s timeout plus one retry, and the DNS result order
   is pinned to `ipv4first` at module load. On such networks an AAAA record is often a blackhole:

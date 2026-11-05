@@ -31,6 +31,7 @@ import { ensureShellEnv } from './shellenv.mjs'
 import { compareVersions, parseVersion } from './semver.mjs'
 import { mainT } from './i18n.mjs'
 import { reportLaunch, checkUpdate, canOpenExternally, SITE_URL, GITHUB_URL, DEVELOPER } from './telemetry.mjs'
+import { permissionsSupported, readPermissions, openPermissionSettings } from './permissions.mjs'
 
 const THEMES = ['light', 'dark']
 const LANGS = ['zh', 'en']
@@ -596,7 +597,22 @@ ipcMain.handle('app:info', () => ({
   autoLaunch: readAutoLaunch(),
   dock: { supported: dockSupported() },
   preventSleep: { supported: preventSleepSupported() },
+  permissions: { supported: permissionsSupported() },
 }))
+
+/**
+ * System-permission checks (macOS only, see permissions.mjs). Reads are silent and cheap, so
+ * the sheet may call them on every open and every time the window regains focus.
+ */
+ipcMain.handle('perm:read', () => readPermissions())
+
+/** Deep-link into the matching Privacy & Security pane; System Settings takes the foreground. */
+ipcMain.handle('perm:open', async (_event, id) => {
+  const result = await openPermissionSettings(String(id ?? ''))
+  // The click is the only feedback this action has, so a refusal has to reach the log panel.
+  if (!result.ok) push(`打开系统设置失败：${id}`)
+  return result
+})
 
 ipcMain.handle('app:auto-launch', async (_event, enabled) => {
   if (!autoLaunchSupported()) {

@@ -74,6 +74,15 @@ const els = {
   autoUpdateCheck: $('autoUpdateCheck'),
   updateBtn: $('updateBtn'),
   updateNote: $('updateNote'),
+  permRow: $('permRow'),
+  permNote: $('permNote'),
+  permBtn: $('permBtn'),
+  perms: $('perms'),
+  permsClose: $('permsClose'),
+  permsSummary: $('permsSummary'),
+  permsMeter: $('permsMeter'),
+  permsList: $('permsList'),
+  permsRecheck: $('permsRecheck'),
   sponsorBtn: $('sponsorBtn'),
 }
 
@@ -742,7 +751,12 @@ function showModal({ title, lines = [], confirmText, cancelText, danger = false 
 }
 
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && !els.settings.hidden) {
+  if (event.key !== 'Escape') return
+  // The report sits on top of the sheet, so it is the first thing Escape dismisses.
+  if (!els.perms.hidden) {
+    event.preventDefault()
+    closePermissions()
+  } else if (!els.settings.hidden) {
     event.preventDefault()
     closeSettings()
   }
@@ -1098,6 +1112,10 @@ async function openSettings() {
   els.updateBtn.disabled = false
   renderUpdateNote('idle', appInfo?.version)
   renderAutoLaunch(appInfo?.autoLaunch)
+  // Cheap, silent probes: the count is current before the sheet is visible, and a slow
+  // read lands a moment later without blocking the open.
+  renderPermissionNote()
+  void readPermissions()
   syncSettingsControls(document.documentElement.dataset.theme, state?.lang)
   renderSettingsSheet()
   els.settings.hidden = false
@@ -1107,6 +1125,7 @@ async function openSettings() {
 }
 
 function closeSettings() {
+  els.perms.hidden = true
   els.settings.hidden = true
   document.body.classList.remove('sheet-open')
 }
@@ -1158,6 +1177,107 @@ async function promptUpdate(info) {
   })
   if (confirmed) await openExternal(info.url || appInfo?.site)
 }
+
+/* ---------- System permissions (macOS only) ---------- */
+
+/**
+ * Latest report from the main process. Probes are silent (see electron/permissions.mjs), so
+ * the sheet refreshes them whenever it matters: on open, on every return to the window and on
+ * demand. The report is *not* cleared before a refresh — the previous counts stay on screen
+ * instead of flashing "reading…" each time.
+ */
+let permissionReport = null
+
+/** Row states the sheet knows; anything unexpected renders as the warning chip. */
+const PERMISSION_STATES = new Set(['granted', 'missing', 'unknown'])
+
+function permissionState(item) {
+  return PERMISSION_STATES.has(item?.state) ? item.state : 'unknown'
+}
+
+/** One line under the label, exactly like the update row above it: "已开通 2/4 项". */
+function renderPermissionNote() {
+  const supported = Boolean(appInfo?.permissions?.supported)
+  els.permRow.hidden = !supported
+  if (!supported) return
+  els.permNote.textContent = permissionReport
+    ? t('perm.summary', { granted: permissionReport.grantedCount, total: permissionReport.total })
+    : t('sheet.permissionsChecking')
+}
+
+/** Paint the report: one chip per row, one meter segment per permission. */
+function renderPermissionPanel() {
+  if (!permissionReport) return
+  els.permsSummary.textContent = t('perm.summary', {
+    granted: permissionReport.grantedCount,
+    total: permissionReport.total,
+  })
+  const segments = els.permsMeter.children
+  // Reuse the segments between refreshes so the bar animates instead of rebuilding.
+  while (segments.length < permissionReport.items.length) els.permsMeter.append(el('i'))
+  while (segments.length > permissionReport.items.length) segments[segments.length - 1].remove()
+  permissionReport.items.forEach((item, index) => {
+    segments[index].dataset.state = permissionState(item)
+  })
+
+  for (const row of els.permsList.querySelectorAll('.perm')) {
+    const item = permissionReport.items.find((entry) => entry.id === row.dataset.perm)
+    const state = permissionState(item)
+    const chip = row.querySelector('.perm-state')
+    chip.dataset.state = state
+    // The chip carries no visible label, so the state has to reach assistive tech another way.
+    chip.setAttribute('aria-label', t(`perm.${state}`))
+    chip.title = t(`perm.${state}`)
+    // App Management is the one row whose "cannot tell" has a cause worth naming inline.
+    const hint = row.querySelector('.perm-hint')
+    hint.textContent =
+      row.dataset.perm === 'appManagement' && state === 'unknown'
+        ? t('perm.appManagementUnknownHint')
+        : hint.dataset.i18n
+          ? t(hint.dataset.i18n)
+          : hint.textContent
+  }
+}
+
+async function readPermissions() {
+  if (!appInfo?.permissions?.supported) return
+  const report = await window.api.readPermissions().catch(() => null)
+  if (report?.supported) permissionReport = report
+  renderPermissionNote()
+  renderPermissionPanel()
+  // Nothing to fall back on and the read failed: say so, do not leave a dash behind.
+  if (!permissionReport) els.permNote.textContent = t('sheet.permissionsFailed')
+}
+
+function openPermissions() {
+  els.perms.hidden = false
+  document.body.classList.add('sheet-open')
+  document.querySelector('.perms-card').focus({ preventScroll: true })
+  void readPermissions()
+}
+
+function closePermissions() {
+  if (els.perms.hidden) return
+  els.perms.hidden = true
+  els.permBtn.focus({ preventScroll: true })
+}
+
+/** System Settings is a separate app: coming back to this window is when the answer changes. */
+window.addEventListener('focus', () => {
+  if (!els.perms.hidden) void readPermissions()
+})
+
+els.permBtn.addEventListener('click', openPermissions)
+els.permsClose.addEventListener('click', closePermissions)
+els.permsRecheck.addEventListener('click', () => void readPermissions())
+els.perms.addEventListener('click', (event) => {
+  if (event.target === els.perms) closePermissions()
+})
+els.permsList.addEventListener('click', (event) => {
+  const button = event.target.closest('.perm-open')
+  const row = button?.closest('.perm')
+  if (row) void window.api.openPermissionSettings(row.dataset.perm).catch(() => null)
+})
 
 els.settingsBtn.addEventListener('click', openSettings)
 els.settingsClose.addEventListener('click', closeSettings)
@@ -1407,6 +1527,8 @@ async function applyLanguage(lang) {
   syncSettingsControls(document.documentElement.dataset.theme, window.i18n.lang)
   renderSettingsSheet()
   renderUpdateNote()
+  renderPermissionNote()
+  renderPermissionPanel()
   renderVersionValue()
   renderVersionOptions()
   if (flowMode) {
