@@ -308,20 +308,21 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 - 匿名启动上报与自动检查更新各有一个开关：上报开关只管 `/api/ping`；自动更新开关只管每天一次的
   `/api/release`；手动「检查更新」始终可用。环境变量 `DSH_READY_NO_TELEMETRY=1` 仍是硬关闭。
 - 系统权限检查（**仅 macOS**，Windows / Linux 整行不渲染）：行样式照抄「检查更新」——标签下是一行
-  「已开通 3/4 项」，右侧是「检测权限」按钮。按钮在设置页之上再叠一层自绘清单：左侧权限名 + 用途，
+  「已开通 2/3 项」，右侧是「检测权限」按钮。按钮在设置页之上再叠一层自绘清单：左侧权限名 + 用途，
   中间一枚状态徽标，右侧「打开设置」。徽标是画出来的字形（圆底 + 对勾 / 三角感叹号），不是 emoji：
-  ✅ 已开通走 `--ok`，⚠️ 未开通 / 无法检测走 `--warn`，顶部四段进度条一段一项。
+  ✅ 已开通走 `--ok`，⚠️ 未开通走 `--warn`，顶部三段进度条一段一项。
   「打开设置」用 `x-apple.systempreferences:` 深链直达对应面板
-  （`Privacy_Accessibility` / `Privacy_ScreenCapture` / `Privacy_AppBundles` / `Privacy_AllFiles`）。
-  四项检测**一律不弹系统框**（否则每次打开设置都糊一遍同样的授权弹窗）：辅助功能走
+  （`Privacy_Accessibility` / `Privacy_ScreenCapture` / `Privacy_AllFiles`）。
+  三项检测**一律不弹系统框**（否则每次打开设置都糊一遍同样的授权弹窗）：辅助功能走
   `systemPreferences.isTrustedAccessibilityClient(false)`，屏幕录制走 `getMediaAccessStatus('screen')`，
   磁盘完全访问靠读一个 TCC 保护文件并校验真实 SQLite 头（macOS 15 上被拒的读取会返回 EOF 而不是抛错，
-  「没抛错」不算拿到权限）。App 管理没有 preflight API，而所有能证明它的操作（改权限、写别的 `.app`）
-  都会触发 TCC 弹窗，所以它的结论从 TCC 数据库读——而 TCC 数据库本身就在磁盘完全访问后面。
-  数据库里**连该服务的记录都没有**时，这一行显示中性的第三种状态（「—」+「无法自动确认：在系统设置里
-  已开启即可」），而不是编一个“未开通”：macOS 26 上即使用户已在「系统设置 → App 管理」里打开本应用，
-  TCC 数据库里也没有任何该服务的记录，把“读不到”说成“未开通”就是假阴性。汇总也相应改成
-  「已开通 3 项，1 项无法确认」，不把无人能核对的权限算进缺失。
+  「没抛错」不算拿到权限）。
+- **App 管理（`kTCCServiceSystemPolicyAppBundles`）刻意不在清单里。** 它没有 preflight API，所有能证明它的
+  操作（`chmod`、写别的 `.app`）都会弹出 TCC 授权框；唯一剩下的来源是 TCC 数据库，而 macOS 26 上该服务
+  在可读的 TCC 库里**一条记录都没有**（用户已在「系统设置 → App 管理」里打开本应用也一样，实测：库里只有
+  Accessibility / DeveloperTool / ListenEvent / PostEvent / ScreenCapture / SystemPolicyAllFiles 六个
+  服务，且没有用户级 TCC 库）。一个永远只能说“无法确认”的条目放在健康指标里只会制造噪声，而启动器本身
+  并不修改其它 App 包。等某个功能真的要去改别的 App 时再加回来 —— 那时系统会当场询问，并且有真实的触发点。
 - 权限清单在三个时机重测：打开设置时、点「重新检测」时、窗口重新获得焦点时。系统设置是另一个 App，
   用户切回来正是结论变化的时刻，不该再要求手点一次。
 - 网络容错（慢速/双栈网络的实测教训）：App 自身的两个请求（`/api/ping`、`/api/release`）共用
@@ -349,9 +350,9 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 | 产物 | 命令 | 说明 |
 | --- | --- | --- |
-| dsh-ready-1.1.1-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
-| dsh-ready-1.1.1-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
-| dsh-ready-1.1.1-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
+| dsh-ready-1.1.2-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
+| dsh-ready-1.1.2-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
+| dsh-ready-1.1.2-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
 
 - 交叉构建：Apple Silicon 上打 Intel 包时，electron-builder 自动下载 x64 版 Electron，产物是可运行的 x86_64 应用。
 - 三个平台都只检测用户环境里的 Node/npm，不自动安装或修改；缺失或版本不满足要求时显示本地化的 Node.js 官网安装链接。

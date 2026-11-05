@@ -1191,26 +1191,21 @@ async function promptUpdate(info) {
 let permissionReport = null
 
 /** Row states the sheet knows; anything unexpected renders as the warning chip. */
-const PERMISSION_STATES = new Set(['granted', 'missing', 'unknown'])
+const PERMISSION_STATES = new Set(['granted', 'missing'])
 
 /** One-shot line above the footnote: what clicking "Open Settings" just did. Cleared by the
  *  next real check, so it never outlives the situation it describes. */
 let permHintOverride = null
 
 function permissionState(item) {
-  return PERMISSION_STATES.has(item?.state) ? item.state : 'unknown'
+  return PERMISSION_STATES.has(item?.state) ? item.state : 'missing'
 }
 
-/**
- * One sentence for the note and the report head. "3/4" was wrong the moment one permission is
- * unreadable rather than denied: it counted a permission nobody could check as missing.
- */
+/** One sentence for the row note and the report head, so the two can never drift apart. */
 function permissionSummary() {
-  if (!permissionReport) return t('sheet.permissionsChecking')
-  const unknown = permissionReport.items.filter((item) => permissionState(item) === 'unknown').length
-  return unknown
-    ? t('perm.summaryMixed', { granted: permissionReport.grantedCount, unknown })
-    : t('perm.summary', { granted: permissionReport.grantedCount, total: permissionReport.total })
+  return permissionReport
+    ? t('perm.summary', { granted: permissionReport.grantedCount, total: permissionReport.total })
+    : t('sheet.permissionsChecking')
 }
 
 /** One line under the label, exactly like the update row above it: "已开通 2/4 项". */
@@ -1241,14 +1236,8 @@ function renderPermissionPanel() {
     // The chip carries no visible label, so the state has to reach assistive tech another way.
     chip.setAttribute('aria-label', t(`perm.${state}`))
     chip.title = t(`perm.${state}`)
-    // App Management is the one row whose "cannot tell" has a cause worth naming inline.
     const hint = row.querySelector('.perm-hint')
-    hint.textContent =
-      row.dataset.perm === 'appManagement' && state === 'unknown'
-        ? t('perm.appManagementUnknownHint')
-        : hint.dataset.i18n
-          ? t(hint.dataset.i18n)
-          : hint.textContent
+    if (hint?.dataset.i18n) hint.textContent = t(hint.dataset.i18n)
   }
 
   // Which app is being authorised: the usual reason for "granted but still missing" is a

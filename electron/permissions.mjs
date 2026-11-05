@@ -6,27 +6,27 @@
  * back from System Settings, so a prompting probe would greet the user with the same alert
  * over and over. That constraint decides the technique for each row:
  *
- *   - Accessibility / Screen Recording have real preflight APIs (no prompt when the prompt
+ *   - Accessibility and Screen Recording have real preflight APIs (silent when the prompt
  *     flag is off), so they are exact.
  *   - Full Disk Access has no preflight at all; the proof is reading a file that TCC protects
  *     on every macOS version and checking for its real first bytes (a denied read can hand
  *     back an empty buffer instead of throwing, so "did not throw" is not enough).
- *   - App Management has no preflight either, and every operation that would prove it
- *     (`chmod` / write inside another .app) triggers the TCC prompt. Its decision therefore
- *     comes out of the TCC database — which itself sits behind Full Disk Access. Without that
- *     grant the row reports `unknown` instead of pretending.
+ *
+ * System Settings → App Management is deliberately absent. It has no preflight either, and
+ * every operation that would prove it (`chmod`, writing inside another `.app`) raises the TCC
+ * prompt — so the only remaining source is the TCC database, and macOS 26 keeps no readable
+ * record of that service at all (not one row, not even for apps the user switched on). A row
+ * that can only ever say "cannot tell" is noise in a health indicator, and the launcher does
+ * not modify other app bundles; when a feature needs it, the system will ask at that moment and
+ * the request can come back with a real trigger.
  */
 import { app, desktopCapturer, shell, systemPreferences } from 'electron'
-import { execFile } from 'node:child_process'
-import { closeSync, openSync, readFileSync, readSync } from 'node:fs'
+import { closeSync, openSync, readSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { promisify } from 'node:util'
-
-const run = promisify(execFile)
 
 /** Report order; the renderer keeps its rows in the same order. */
-const PERMISSION_IDS = ['accessibility', 'screenRecording', 'appManagement', 'fullDiskAccess']
+const PERMISSION_IDS = ['accessibility', 'screenRecording', 'fullDiskAccess']
 
 /**
  * System Settings deep links. The `?Privacy_*` anchor is what selects the row inside the
@@ -35,37 +35,23 @@ const PERMISSION_IDS = ['accessibility', 'screenRecording', 'appManagement', 'fu
 const PANES = {
   accessibility: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
   screenRecording: 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
-  appManagement: 'x-apple.systempreferences:com.apple.preference.security?Privacy_AppBundles',
   fullDiskAccess: 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles',
 }
 
 /**
  * Files that are TCC-protected on every macOS version this app supports. Either one being
- * readable proves Full Disk Access: the user-level TCC database is NOT a valid sentinel (some
- * versions let the owning process read it without the grant), and files that merely *used to*
- * be protected — the legacy `~/Library/Safari` bookmarks — can be left readable after a
- * migration, which reports a grant that does not exist.
+ * readable proves Full Disk Access: files that merely *used to* be protected — the legacy
+ * `~/Library/Safari` bookmarks — can be left readable after a migration, which reports a grant
+ * that does not exist.
  */
 const FDA_SENTINELS = [
   '/Library/Application Support/com.apple.TCC/TCC.db',
   join(homedir(), 'Library/Messages', 'chat.db'),
 ]
 
-/** Where the TCC decisions live; both are only readable with Full Disk Access. */
-const TCC_DATABASES = [
-  join(homedir(), 'Library/Application Support/com.apple.TCC/TCC.db'),
-  '/Library/Application Support/com.apple.TCC/TCC.db',
-]
-
 /** Every TCC.db / chat.db is a SQLite database, so byte 0 is always this header. */
 const SQLITE_HEADER = Buffer.from('SQLite format 3\u0000', 'latin1')
 const SQLITE_HEADER_LENGTH = 16
-
-/** The TCC service that backs System Settings → Privacy & Security → App Management. */
-const APP_MANAGEMENT_SERVICE = 'kTCCServiceSystemPolicyAppBundles'
-
-/** Longest we wait for sqlite3: the database is small, and a locked file must not stall the sheet. */
-const SQLITE_TIMEOUT_MS = 4000
 
 /** macOS only: Windows and Linux have no TCC, and the settings row is hidden there. */
 export function permissionsSupported() {
@@ -75,25 +61,18 @@ export function permissionsSupported() {
 /**
  * Read the current state of every permission.
  *
- * `state` is `granted` | `missing` | `unknown`; the renderer owns the copy, so the ids travel
- * without labels. The probe is cheap (two API reads and up to two file reads) and silent.
+ * `state` is `granted` | `missing`; the renderer owns the copy, so ids travel without labels.
+ * The probe is cheap (two API reads plus up to two file reads) and silent.
  */
 export async function readPermissions() {
   if (!permissionsSupported()) return { supported: false, items: [], grantedCount: 0, total: 0 }
 
-  const fullDiskAccess = fullDiskAccessGranted()
   const states = {
     accessibility: trustedAccessibility(),
     screenRecording: systemPreferences.getMediaAccessStatus('screen') === 'granted',
-    fullDiskAccess,
+    fullDiskAccess: fullDiskAccessGranted(),
   }
-  // Only meaningful with Full Disk Access, and only worth a sqlite3 spawn when it can answer.
-  const appManagement = fullDiskAccess ? await appManagementState() : 'unknown'
-
-  const items = PERMISSION_IDS.map((id) => ({
-    id,
-    state: id === 'appManagement' ? appManagement : states[id] ? 'granted' : 'missing',
-  }))
+  const items = PERMISSION_IDS.map((id) => ({ id, state: states[id] ? 'granted' : 'missing' }))
   return {
     supported: true,
     items,
@@ -200,79 +179,5 @@ function readableSqlite(path) {
         /* nothing left to do with a descriptor that will not close */
       }
     }
-  }
-}
-
-/**
- * App Management straight out of the TCC database.
- *
- * With Full Disk Access proven above, the database is readable, so "no row for this app" is a
- * real answer (never granted) rather than a guess. Anything that goes wrong — a missing
- * database, a schema this version does not recognise, sqlite3 refusing to open it — degrades
- * to `unknown` instead of a wrong `missing`.
- */
-async function appManagementState() {
-  // Unpackaged the executable is stock Electron, whose bundle id is shared by every Electron
-  // app on the machine: matching those rows would report somebody else's grant as ours.
-  if (!app.isPackaged) return 'unknown'
-  const identities = clientIdentities()
-  let serviceTracked = false
-  for (const database of TCC_DATABASES) {
-    const rows = await readTccRows(database)
-    if (rows === null) continue
-    if (rows.length) serviceTracked = true
-    const mine = rows.filter((row) => matchesClient(row.client, identities))
-    if (mine.some((row) => row.authValue === 2)) return 'granted'
-    // A row with any other value is a real decision: the user said no (or macOS revoked it).
-    if (mine.length) return 'missing'
-  }
-  if (!identities.length) return 'unknown'
-  // Setting the toggle on in System Settings → App Management leaves NO record in any readable
-  // TCC database on macOS 26 — the service has no rows at all, not even for other apps. An
-  // empty service is therefore "this build of macOS does not expose it", not "the user denied
-  // it": reporting a denial there is a false negative the user cannot act on.
-  return serviceTracked ? 'missing' : 'unknown'
-}
-
-/** `client` is the bundle id for a signed app and a path for a loose binary: accept both. */
-function clientIdentities() {
-  const identities = new Set()
-  try {
-    const bundle = join(process.execPath, '..', '..')
-    identities.add(process.execPath)
-    identities.add(bundle)
-    identities.add(join(bundle, '..'))
-    const plist = readFileSync(join(process.execPath, '..', '..', 'Info.plist'), 'utf8')
-    const match = plist.match(/<key>CFBundleIdentifier<\/key>\s*<string>([^<]+)<\/string>/)
-    if (match) identities.add(match[1].trim())
-  } catch {
-    /* unpackaged (development): the stock Electron bundle id is not ours to match */
-  }
-  return [...identities]
-}
-
-function matchesClient(client, identities) {
-  if (!client) return false
-  return identities.some((identity) => client === identity)
-}
-
-/** `[{ client, authValue }]`, or null when the database cannot be read at all. */
-async function readTccRows(database) {
-  const sql = `SELECT client, auth_value FROM access WHERE service='${APP_MANAGEMENT_SERVICE}';`
-  try {
-    const { stdout } = await run('/usr/bin/sqlite3', ['-readonly', '-separator', '\t', database, sql], {
-      timeout: SQLITE_TIMEOUT_MS,
-      maxBuffer: 1 << 20,
-    })
-    return stdout
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => {
-        const [client, authValue] = line.split('\t')
-        return { client, authValue: Number(authValue) }
-      })
-      .filter((row) => Number.isFinite(row.authValue))
-  } catch {
-    return null
   }
 }
