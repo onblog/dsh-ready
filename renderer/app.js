@@ -1201,23 +1201,30 @@ function permissionState(item) {
   return PERMISSION_STATES.has(item?.state) ? item.state : 'unknown'
 }
 
+/**
+ * One sentence for the note and the report head. "3/4" was wrong the moment one permission is
+ * unreadable rather than denied: it counted a permission nobody could check as missing.
+ */
+function permissionSummary() {
+  if (!permissionReport) return t('sheet.permissionsChecking')
+  const unknown = permissionReport.items.filter((item) => permissionState(item) === 'unknown').length
+  return unknown
+    ? t('perm.summaryMixed', { granted: permissionReport.grantedCount, unknown })
+    : t('perm.summary', { granted: permissionReport.grantedCount, total: permissionReport.total })
+}
+
 /** One line under the label, exactly like the update row above it: "已开通 2/4 项". */
 function renderPermissionNote() {
   const supported = Boolean(appInfo?.permissions?.supported)
   els.permRow.hidden = !supported
   if (!supported) return
-  els.permNote.textContent = permissionReport
-    ? t('perm.summary', { granted: permissionReport.grantedCount, total: permissionReport.total })
-    : t('sheet.permissionsChecking')
+  els.permNote.textContent = permissionSummary()
 }
 
 /** Paint the report: one chip per row, one meter segment per permission. */
 function renderPermissionPanel() {
   if (!permissionReport) return
-  els.permsSummary.textContent = t('perm.summary', {
-    granted: permissionReport.grantedCount,
-    total: permissionReport.total,
-  })
+  els.permsSummary.textContent = permissionSummary()
   const segments = els.permsMeter.children
   // Reuse the segments between refreshes so the bar animates instead of rebuilding.
   while (segments.length < permissionReport.items.length) els.permsMeter.append(el('i'))

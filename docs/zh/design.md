@@ -317,8 +317,11 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
   `systemPreferences.isTrustedAccessibilityClient(false)`，屏幕录制走 `getMediaAccessStatus('screen')`，
   磁盘完全访问靠读一个 TCC 保护文件并校验真实 SQLite 头（macOS 15 上被拒的读取会返回 EOF 而不是抛错，
   「没抛错」不算拿到权限）。App 管理没有 preflight API，而所有能证明它的操作（改权限、写别的 `.app`）
-  都会触发 TCC 弹窗，所以它的结论从 TCC 数据库读——而 TCC 数据库本身就在磁盘完全访问后面：没开那一项时
-  这一行如实显示第三种状态「需先开通磁盘完全访问」，不猜。
+  都会触发 TCC 弹窗，所以它的结论从 TCC 数据库读——而 TCC 数据库本身就在磁盘完全访问后面。
+  数据库里**连该服务的记录都没有**时，这一行显示中性的第三种状态（「—」+「无法自动确认：在系统设置里
+  已开启即可」），而不是编一个“未开通”：macOS 26 上即使用户已在「系统设置 → App 管理」里打开本应用，
+  TCC 数据库里也没有任何该服务的记录，把“读不到”说成“未开通”就是假阴性。汇总也相应改成
+  「已开通 3 项，1 项无法确认」，不把无人能核对的权限算进缺失。
 - 权限清单在三个时机重测：打开设置时、点「重新检测」时、窗口重新获得焦点时。系统设置是另一个 App，
   用户切回来正是结论变化的时刻，不该再要求手点一次。
 - 网络容错（慢速/双栈网络的实测教训）：App 自身的两个请求（`/api/ping`、`/api/release`）共用
@@ -346,9 +349,9 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 | 产物 | 命令 | 说明 |
 | --- | --- | --- |
-| dsh-ready-1.1.0-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
-| dsh-ready-1.1.0-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
-| dsh-ready-1.1.0-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
+| dsh-ready-1.1.1-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
+| dsh-ready-1.1.1-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
+| dsh-ready-1.1.1-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
 
 - 交叉构建：Apple Silicon 上打 Intel 包时，electron-builder 自动下载 x64 版 Electron，产物是可运行的 x86_64 应用。
 - 三个平台都只检测用户环境里的 Node/npm，不自动安装或修改；缺失或版本不满足要求时显示本地化的 Node.js 官网安装链接。

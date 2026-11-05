@@ -216,17 +216,22 @@ async function appManagementState() {
   // app on the machine: matching those rows would report somebody else's grant as ours.
   if (!app.isPackaged) return 'unknown'
   const identities = clientIdentities()
-  let sawRow = false
+  let serviceTracked = false
   for (const database of TCC_DATABASES) {
     const rows = await readTccRows(database)
     if (rows === null) continue
-    sawRow = true
+    if (rows.length) serviceTracked = true
     const mine = rows.filter((row) => matchesClient(row.client, identities))
     if (mine.some((row) => row.authValue === 2)) return 'granted'
+    // A row with any other value is a real decision: the user said no (or macOS revoked it).
+    if (mine.length) return 'missing'
   }
-  // No identity to compare against (an unpackaged run) or no readable database: stay honest.
   if (!identities.length) return 'unknown'
-  return sawRow ? 'missing' : 'unknown'
+  // Setting the toggle on in System Settings → App Management leaves NO record in any readable
+  // TCC database on macOS 26 — the service has no rows at all, not even for other apps. An
+  // empty service is therefore "this build of macOS does not expose it", not "the user denied
+  // it": reporting a denial there is a false negative the user cannot act on.
+  return serviceTracked ? 'missing' : 'unknown'
 }
 
 /** `client` is the bundle id for a signed app and a path for a loose binary: accept both. */

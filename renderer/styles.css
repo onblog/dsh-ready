@@ -1527,10 +1527,24 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
   color: var(--ok);
 }
 
-.perm-state[data-state='missing'],
-.perm-state[data-state='unknown'] {
+.perm-state[data-state='missing'] {
   background: var(--warn-soft);
   color: var(--warn);
+}
+
+/* "Undetectable" is not a denial: a neutral dash, so a permission the system does not expose
+   never reads as the user's fault. */
+.perm-state[data-state='unknown'] {
+  background: var(--deep);
+  color: var(--ink-3);
+}
+
+.perm-state[data-state='unknown']::after {
+  content: '';
+  width: 9px;
+  height: 1.5px;
+  border-radius: 1px;
+  background: currentColor;
 }
 
 .perm-ico {
@@ -1545,8 +1559,7 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
 }
 
 .perm-state[data-state='granted'] .perm-ico-ok,
-.perm-state[data-state='missing'] .perm-ico-warn,
-.perm-state[data-state='unknown'] .perm-ico-warn {
+.perm-state[data-state='missing'] .perm-ico-warn {
   display: block;
 }
 

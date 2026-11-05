@@ -325,9 +325,9 @@ macOS Apple Silicon (arm64), macOS Intel (x64) and Windows (x64).
 
 | Artifact | Command | Notes |
 | --- | --- | --- |
-| `dsh-ready-1.1.0-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
-| `dsh-ready-1.1.0-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
-| `dsh-ready-1.1.0-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
+| `dsh-ready-1.1.1-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
+| `dsh-ready-1.1.1-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
+| `dsh-ready-1.1.1-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
 
 - Cross-builds download the matching Electron build; Intel/Windows packaging works on
   an Apple Silicon Mac without Wine.
