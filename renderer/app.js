@@ -81,6 +81,8 @@ const els = {
   permsClose: $('permsClose'),
   permsSummary: $('permsSummary'),
   permsMeter: $('permsMeter'),
+  permsOwner: $('permsOwner'),
+  permsNote: document.querySelector('.perms-note'),
   permsList: $('permsList'),
   permsRecheck: $('permsRecheck'),
   sponsorBtn: $('sponsorBtn'),
@@ -1191,6 +1193,10 @@ let permissionReport = null
 /** Row states the sheet knows; anything unexpected renders as the warning chip. */
 const PERMISSION_STATES = new Set(['granted', 'missing', 'unknown'])
 
+/** One-shot line above the footnote: what clicking "Open Settings" just did. Cleared by the
+ *  next real check, so it never outlives the situation it describes. */
+let permHintOverride = null
+
 function permissionState(item) {
   return PERMISSION_STATES.has(item?.state) ? item.state : 'unknown'
 }
@@ -1237,10 +1243,20 @@ function renderPermissionPanel() {
           ? t(hint.dataset.i18n)
           : hint.textContent
   }
+
+  // Which app is being authorised: the usual reason for "granted but still missing" is a
+  // different copy (dmg, old build) or a translocated path, and both are visible here.
+  const owner = permissionReport.owner
+  if (owner) {
+    els.permsOwner.textContent = owner.path
+    els.permsOwner.classList.toggle('is-warning', Boolean(owner.transient))
+  }
+  els.permsNote.textContent = permHintOverride || (owner?.transient ? t('perm.transient') : t('perm.footnote'))
 }
 
 async function readPermissions() {
   if (!appInfo?.permissions?.supported) return
+  permHintOverride = null
   const report = await window.api.readPermissions().catch(() => null)
   if (report?.supported) permissionReport = report
   renderPermissionNote()
@@ -1273,10 +1289,17 @@ els.permsRecheck.addEventListener('click', () => void readPermissions())
 els.perms.addEventListener('click', (event) => {
   if (event.target === els.perms) closePermissions()
 })
-els.permsList.addEventListener('click', (event) => {
+els.permsList.addEventListener('click', async (event) => {
   const button = event.target.closest('.perm-open')
   const row = button?.closest('.perm')
-  if (row) void window.api.openPermissionSettings(row.dataset.perm).catch(() => null)
+  if (!row) return
+  const result = await window.api.openPermissionSettings(row.dataset.perm).catch(() => null)
+  // The pane was opened after registering this app with macOS: say so, otherwise the extra row
+  // that just appeared in System Settings looks like it came from nowhere.
+  if (result?.registered) {
+    permHintOverride = t('perm.registered')
+    renderPermissionPanel()
+  }
 })
 
 els.settingsBtn.addEventListener('click', openSettings)
@@ -1479,22 +1502,12 @@ els.autoLaunch.addEventListener('click', async () => {
 window.api.onEvent((payload) => {
   if (payload.type === 'log') appendLine(payload.line)
   else if (payload.type === 'state') render(payload.state)
-  else if (payload.type === 'quit-request') requestQuit()
   else if (payload.type === 'update-available') promptUpdate(payload)
 })
 
-/** Quit confirmation: the UI button, Cmd+Q and the menu all share the same custom dialog. */
+/** Quit immediately: no confirmation. The main process stops a managed DSH on the way out. */
 async function requestQuit() {
-  if (!els.modal.hidden) return
-  const running = state?.status === 'running' || state?.status === 'external'
-  const confirmed = await showModal({
-    title: t('quit.title'),
-    lines: [t(running ? 'quit.detailRunning' : 'quit.detailIdle')],
-    confirmText: t('quit.confirm'),
-    cancelText: t('dialog.cancel'),
-    danger: true,
-  })
-  if (confirmed) await window.api.quit()
+  await window.api.quit()
 }
 
 /* ---------- Boot overlay ---------- */

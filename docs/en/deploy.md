@@ -77,6 +77,19 @@ SITE_URL=https://dsh.wordtk.com npm run deploy
 `latest.json`, then delete every object the previous manifest referenced. R2 must not
 accumulate installers nobody can download.
 
+## Code-signing identity (once per build machine)
+
+```sh
+scripts/create-signing-identity.sh   # creates + imports "DSH Ready Code Signing"
+```
+
+The key lives outside the repository in `~/.config/dsh-ready-signing/` (a signing key is a
+secret); back that directory up. Without it the build still works, but `after-pack` falls back
+to ad-hoc signing, and ad-hoc gives the bundle a `cdhash`-only designated requirement — a new
+code identity on every build, which makes macOS drop every TCC grant the user gave to the
+previous version. Recreating the key is the same as changing the app's identity: users have to
+re-grant once more.
+
 ## Workers Builds (deploy on git push)
 
 1. Cloudflare Dashboard → Workers & Pages → `dsh-ready` → Settings → Build.

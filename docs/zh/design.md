@@ -227,7 +227,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 - 主进程按优先级解析：`settings.json` 里显式选择的 `lang` → `app.getLocale()` 的区域判断；结果放进 `state.lang`，渲染层据此加载文案。
 - 渲染层文案集中在 `renderer/i18n.js`（`t(key, params)`），主进程返回的状态消息集中在 `electron/i18n.mjs`（`mainT`），两边 key 命名保持一致。
-- 确认框、提示框全部由渲染层自绘（`showModal`），不再使用 Electron 原生 `dialog`；Cmd+Q 与菜单退出也走同一个确认框。
+- 提示框全部由渲染层自绘（`showModal`），不使用 Electron 原生 `dialog`；**退出不再有确认框**：顶栏退出按钮、Cmd+Q 与菜单栏「退出」一律直接退出，退出前会把受管的 DSH 停掉，没有别的代价需要在弹窗里确认。
 - 语言按钮固定在最左侧，显示当前语言（`中文` / `EN`），点击即切换并持久化到 `settings.json`。
 - 插件升级检查的结构化结果（`plan.plugins[].detail`）由渲染层按当前语言拼文案，主进程不再返回写死的中文原因。
 - 日志与命令保持原文（dsh / npm / pnpm 的原始输出），不参与翻译。
@@ -271,7 +271,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
   仅安装版 macOS / Windows 可用，Linux 与开发模式禁用并在开关下方给出说明。
 - 启动后自动打开浏览器：默认关闭。关闭时启动命令追加 `--no-open`，开启则由 DSH 自己拉起浏览器。
 - 系统托盘 / 菜单栏图标：默认开启，可在设置里关掉（关掉即销毁图标，不留空位）。菜单只有
-  「显示主窗口」与「退出」两项，退出仍走应用内自绘确认框；tooltip 与菜单文案跟随语言切换。
+  「显示主窗口」与「退出」两项，退出即退、不再弹确认框；tooltip 与菜单文案跟随语言切换。
   - **macOS 用单色模板图**（`renderer/assets/trayTemplate.png` 18pt + 同名 `@2x` 36pt，由同一份
     矢量栅格化，`setTemplateImage(true)` 让系统按菜单栏明暗自动着色）。图案就是 DSH 官方鲸鱼 mark
     （`@deepseek-ai/dsh-client-ui-primitives` 的 `FISH_LOGO_PATH`，viewBox 23.16×17.04），不自己另画、
@@ -346,15 +346,21 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 | 产物 | 命令 | 说明 |
 | --- | --- | --- |
-| dsh-ready-1.0.18-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
-| dsh-ready-1.0.18-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
-| dsh-ready-1.0.18-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
+| dsh-ready-1.1.0-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
+| dsh-ready-1.1.0-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
+| dsh-ready-1.1.0-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
 
 - 交叉构建：Apple Silicon 上打 Intel 包时，electron-builder 自动下载 x64 版 Electron，产物是可运行的 x86_64 应用。
 - 三个平台都只检测用户环境里的 Node/npm，不自动安装或修改；缺失或版本不满足要求时显示本地化的 Node.js 官网安装链接。
-- macOS 构建在 `afterPack` 钩子里用 `codesign --deep --force --sign -` 做 ad-hoc 签名
-  （electron-builder 的 `identity` 留空）：Apple Silicon 直接可运行；未公证，带隔离属性
-  的副本首次打开仍会被 Gatekeeper 拦一次，到「系统设置 → 隐私与安全性」点「仍要打开」。
+- macOS 构建在 `afterPack` 钩子里签名（electron-builder 的 `identity` 留空）：优先用
+  **稳定的自签名身份**（`scripts/create-signing-identity.sh` 在每台构建机导入一次），
+  没有该身份时退回 ad-hoc（`--sign -`）。这不是外观问题：ad-hoc 签名的设计需求只有
+  `cdhash H"…"`，**每次构建都是一个全新的代码身份**，而 macOS 的 TCC 授权正是按这条需求
+  记账的 —— 于是每个新版本都会以“陌生 App”出现，用户之前给的辅助功能 / 屏幕录制 /
+  磁盘完全访问授权静默失效，而系统设置里那行旧条目还显示“已开”。自签名身份得到的是
+  `identifier "com.onblog.dsh-ready" and certificate leaf = H"…"`，跨版本稳定。
+  构建日志会打印最终的设计需求，退回 ad-hoc 一眼可见。两者都未公证，带隔离属性的副本首次
+  打开仍会被 Gatekeeper 拦一次，到「系统设置 → 隐私与安全性」点「仍要打开」；
   若提示「已损坏」，执行 `xattr -cr`。
 - 三平台共享同一份 `electron/` 与 `renderer/` 代码，平台差异集中在这几处：
 

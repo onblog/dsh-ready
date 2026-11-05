@@ -134,7 +134,7 @@ accepted external one) and starts it again with the current settings, so launch-
 
 `log:get` → `{ lines }` (last 2000 lines); `log:clear` → `{ ok }`.
 `port:set` takes `{ port }` and is refused while running; the new port is persisted to
-`settings.json`. `app:quit` confirms, stops a managed DSH and quits.
+`settings.json`. `app:quit` stops a managed DSH and quits — no confirmation step.
 `lang:set` takes `{ lang }` and returns the resolved language; `theme:set` takes
 `{ theme }` and persists it. Only `light` / `dark` are accepted; any other value
 (including a legacy `system`) falls back to `dark`.
@@ -325,17 +325,24 @@ macOS Apple Silicon (arm64), macOS Intel (x64) and Windows (x64).
 
 | Artifact | Command | Notes |
 | --- | --- | --- |
-| `dsh-ready-1.0.18-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
-| `dsh-ready-1.0.18-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
-| `dsh-ready-1.0.18-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
+| `dsh-ready-1.1.0-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
+| `dsh-ready-1.1.0-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
+| `dsh-ready-1.1.0-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
 
 - Cross-builds download the matching Electron build; Intel/Windows packaging works on
   an Apple Silicon Mac without Wine.
-- macOS builds are **ad-hoc signed in an `afterPack` hook** (`codesign --deep --force
-  --sign -`, with electron-builder's `identity` left null), which Apple Silicon
-  requires. They are not notarized, so a quarantined copy is still blocked once by
-  Gatekeeper: allow it in System Settings → Privacy & Security, or clear it with
-  `xattr -cr` when macOS claims the app is damaged.
+- macOS builds are signed in an `afterPack` hook (electron-builder's `identity` stays null)
+  with a **stable self-signed identity**, created once per build machine by
+  `scripts/create-signing-identity.sh`, and fall back to ad-hoc (`--sign -`) when that identity
+  is absent. The choice is not cosmetic: ad-hoc signing yields a designated requirement of
+  `cdhash H"…"` and nothing else, which is a *different code identity on every build*, and macOS
+  keys TCC grants on exactly that requirement — so each release would arrive as an unknown app
+  and silently lose the user's Accessibility / Screen Recording / Full Disk Access grants while
+  System Settings kept showing the stale row as on. The self-signed identity yields
+  `identifier "com.onblog.dsh-ready" and certificate leaf = H"…"`, which survives rebuilds.
+  Builds print the resulting requirement, so a regression back to ad-hoc is visible in the log.
+  Neither identity is notarized, so a quarantined copy is still blocked once by Gatekeeper:
+  allow it in System Settings → Privacy & Security, or clear it with `xattr -cr`.
 - On Apple Silicon without Rosetta, the legacy NSIS bundle is an x86_64 `makensis` and
   cannot run, so `electron-builder.config.mjs` pins `toolsets.nsis = '1.2.1'`
   (unified bundle with a native arm64 entrypoint).

@@ -16,7 +16,7 @@
  *     comes out of the TCC database — which itself sits behind Full Disk Access. Without that
  *     grant the row reports `unknown` instead of pretending.
  */
-import { app, shell, systemPreferences } from 'electron'
+import { app, desktopCapturer, shell, systemPreferences } from 'electron'
 import { execFile } from 'node:child_process'
 import { closeSync, openSync, readFileSync, readSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -99,19 +99,67 @@ export async function readPermissions() {
     items,
     grantedCount: items.filter((item) => item.state === 'granted').length,
     total: items.length,
+    // Which app the user is being asked to toggle. macOS keys every grant on the bundle's code
+    // identity, so "granted but still missing" is almost always a different copy (dmg, an old
+    // build, or a translocated path) — showing the target makes that visible.
+    owner: {
+      path: app.getPath('exe'),
+      version: app.getVersion(),
+      packaged: app.isPackaged,
+      transient: isTransientLocation(app.getPath('exe')),
+    },
   }
 }
 
-/** Open the Privacy & Security pane that owns `id`. False for an unknown id. */
+/**
+ * True when the running bundle cannot keep a TCC grant anyway: App Translocation re-mounts a
+ * quarantined app from a randomized read-only path, and a copy launched straight out of the dmg
+ * lives on /Volumes. Grants are keyed on the code identity at that path, so they evaporate.
+ */
+function isTransientLocation(execPath) {
+  return /\/Volumes\//.test(execPath) || /AppTranslocation/.test(execPath)
+}
+
+/**
+ * Open the Privacy & Security pane that owns `id`, first making sure this app is *listed* in
+ * it. macOS only offers rows for apps that have asked, and a silent check never asks — so
+ * without this the pane opens with no row to toggle, the user switches on something else, and
+ * reports that the grant did not work. `registered` tells the sheet to say so.
+ */
 export async function openPermissionSettings(id) {
   const url = PANES[id]
-  if (!url) return { ok: false }
+  if (!url) return { ok: false, registered: false }
+  const registered = registerForPane(id)
   try {
     await shell.openExternal(url)
-    return { ok: true }
+    return { ok: true, registered }
   } catch {
-    return { ok: false }
+    return { ok: false, registered }
   }
+}
+
+/** Ask macOS to register this app in the list behind `id`, raising its one-time prompt. */
+function registerForPane(id) {
+  if (id === 'accessibility' && !trustedAccessibility()) {
+    // The prompting variant is the only way an app joins the Accessibility list; it returns
+    // immediately and shows the system alert.
+    try {
+      systemPreferences.isTrustedAccessibilityClient(true)
+      return true
+    } catch {
+      return false
+    }
+  }
+  if (id === 'screenRecording' && systemPreferences.getMediaAccessStatus('screen') !== 'granted') {
+    // One real capture request is what registers the app for Screen Recording. Deliberately not
+    // awaited: the first call can stay pending until the user answers, and the pane must still
+    // open right away.
+    void desktopCapturer
+      .getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } })
+      .catch(() => null)
+    return true
+  }
+  return false
 }
 
 /**

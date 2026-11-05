@@ -73,6 +73,17 @@ SITE_URL=https://dsh.wordtk.com npm run deploy
 `publish-release.mjs` 只保留当前版本：上传新的三个安装包 → 上传 `latest.json` →
 删除上一份清单里指向的旧对象。R2 里不应堆积下载不到的安装包。
 
+## 代码签名身份（每台构建机一次）
+
+```sh
+scripts/create-signing-identity.sh   # 创建并导入「DSH Ready Code Signing」
+```
+
+私钥放在仓库之外 `~/.config/dsh-ready-signing/`（签名密钥属秘密，不进仓库），请自行备份。
+没有它也能构建，但 `after-pack` 会退回 ad-hoc 签名；ad-hoc 的设计需求只有 `cdhash`，
+也就是每次构建都是全新代码身份，用户在上一版里给出的 macOS 授权会全部失效。
+重新生成密钥等同于更换应用身份：所有用户需要再授权一次。
+
 ## Workers Builds（git push 自动部署）
 
 1. Cloudflare Dashboard → Workers & Pages → `dsh-ready` → Settings → Build。

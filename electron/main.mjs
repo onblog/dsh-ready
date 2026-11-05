@@ -114,11 +114,10 @@ function applyDockIcon() {
   dockTimer.unref?.()
 }
 
+/** Menu-bar Quit: straight to before-quit, which stops a managed DSH and exits. */
 function requestQuitFromTray() {
-  showMainWindow()
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('dsh:event', { type: 'quit-request' })
-  }
+  quitConfirmed = true
+  app.quit()
 }
 
 /**
@@ -733,20 +732,10 @@ app.on('window-all-closed', () => {
 app.on('before-quit', (event) => {
   if (readyToQuit) return
 
-  // Intercept until confirmed and hand over to the in-app custom confirm dialog (Cmd+Q / menu quit also land here).
-  if (!quitConfirmed) {
-    event.preventDefault()
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      if (!mainWindow.isVisible()) mainWindow.show()
-      mainWindow.focus()
-      mainWindow.webContents.send('dsh:event', { type: 'quit-request' })
-    } else {
-      quitConfirmed = true
-      app.quit()
-    }
-    return
-  }
-
+  // Quitting is not a decision to confirm: the header button, Cmd+Q and the menu-bar entry all
+  // end here and exit directly. A managed DSH is stopped on the way out (see below), which is
+  // the only consequence worth knowing — the sheet showed it, a dialog only blocked the exit.
+  quitConfirmed = true
   event.preventDefault()
   if (shuttingDown) return
   shuttingDown = true

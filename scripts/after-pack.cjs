@@ -4,34 +4,67 @@ const { execFileSync, spawnSync } = require('node:child_process');
 const path = require('node:path');
 
 /**
- * Ad-hoc sign the packaged macOS app before the dmg is built.
+ * Sign the packaged macOS app before the dmg is built, with the **stable** self-signed
+ * identity when the machine has it and ad-hoc otherwise.
  *
- * Without any signature an Apple Silicon Mac refuses to launch the bundle and
- * macOS reports it as "damaged". Ad-hoc signing is enough to make the binary
- * valid and launchable; because it is not an Apple Developer ID and the app is
- * not notarized, Gatekeeper still treats a quarantined copy as being from an
- * unidentified developer, which is the expected flow (allow it once in
- * System Settings → Privacy & Security → Open Anyway).
+ * Why the identity matters (this is not cosmetic):
+ *   - Ad-hoc (`--sign -`) produces a designated requirement of `cdhash H"…"` and nothing
+ *     else — a different code identity on every build. macOS keys TCC decisions
+ *     (Accessibility, Screen Recording, Full Disk Access, App Management) on that
+ *     requirement, so a new version arrives as an unknown app: every permission the user
+ *     granted silently stops applying, and System Settings keeps showing the stale row as
+ *     ON. That is the "I granted it but it still says not granted" report.
+ *   - The self-signed identity yields
+ *     `identifier "com.onblog.dsh-ready" and certificate leaf = H"…"`, which is stable
+ *     across rebuilds, so a grant survives application updates.
  *
- * Signing happens here, in afterPack, so it runs on the exact bundle that goes
- * into the dmg for every architecture. electron-builder's own identity: option
- * is left at null: a self-signed or ad-hoc identity configured there is easy to
- * get wrong, and a silently skipped signature is what produces "damaged".
+ * Either way the app is not notarized, so Gatekeeper still stops a quarantined copy once
+ * (allow it in System Settings → Privacy & Security). The identity is created once per
+ * machine by scripts/create-signing-identity.sh and kept out of the repository.
+ *
+ * Signing happens here, in afterPack, so it runs on the exact bundle that goes into the
+ * dmg for every architecture. electron-builder's own identity: option stays null: it is
+ * easy to get wrong there, and a silently skipped signature is what produces "damaged".
  */
+const STABLE_IDENTITY = 'DSH Ready Code Signing';
+
+/** Is the persistent code-signing identity imported in this user's keychain? */
+function hasStableIdentity() {
+  // No -v: that flag only lists identities whose chain is trusted, and a self-signed root
+  // is never trusted. codesign signs with it perfectly well.
+  const listed = spawnSync('security', ['find-identity', '-p', 'codesigning'], { encoding: 'utf8' });
+  return `${listed.stdout ?? ''}`.includes(STABLE_IDENTITY);
+}
+
 exports.default = async function afterPack(context) {
   if (context.electronPlatformName !== 'darwin') return;
 
   const appName = context.packager.appInfo.productFilename;
   const appPath = path.join(context.appOutDir, `${appName}.app`);
+  const stable = hasStableIdentity();
+  const identity = stable ? STABLE_IDENTITY : '-';
 
-  execFileSync('codesign', ['--deep', '--force', '--sign', '-', appPath], {
+  execFileSync('codesign', ['--deep', '--force', '--sign', identity, appPath], {
     stdio: 'inherit',
   });
 
-  // codesign -dv writes its report to stderr.
+  // codesign -dv / -d -r- write their reports to stderr.
   const verify = spawnSync('codesign', ['-dv', appPath], { encoding: 'utf8' });
   const info = `${verify.stdout ?? ''}${verify.stderr ?? ''}`;
   const sealed = info.split('\n').find((line) => line.startsWith('Sealed Resources')) ?? '';
-  console.log(`[after-pack] ad-hoc signed ${appPath}`);
+  const requirement = spawnSync('codesign', ['-d', '-r-', appPath], { encoding: 'utf8' });
+  const designated = `${requirement.stdout ?? ''}${requirement.stderr ?? ''}`
+    .split('\n')
+    .find((line) => line.includes('designated =>')) ?? '';
+
+  console.log(`[after-pack] signed ${appPath} with ${stable ? STABLE_IDENTITY : 'ad-hoc identity'}`);
   console.log(`[after-pack] ${sealed.trim()}`);
+  console.log(`[after-pack] ${designated.replace(/^#\s*/, '').trim()}`);
+  if (!stable) {
+    console.warn(
+      '[after-pack] WARNING: ad-hoc identity — the designated requirement is a cdhash, so every ' +
+        'release is a new code identity and macOS permissions granted to the previous version ' +
+        'stop applying. Run scripts/create-signing-identity.sh once to get a stable identity.',
+    );
+  }
 };

@@ -1557,6 +1557,33 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
   color: var(--ink-3);
 }
 
+/* Grant target: the app the user is about to toggle, in monospace so a dmg or old-build path
+   stands out from the /Applications one at a glance. */
+.perms-owner {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+
+/* The label must never wrap: the path is the long part, and a squeezed label reads as two
+   stacked words. */
+.perms-owner > span:first-child {
+  flex: none;
+  white-space: nowrap;
+}
+
+.perms-owner .mono {
+  user-select: text;
+}
+
+.perms-owner .mono.is-warning {
+  color: var(--warn);
+}
+
 .perms-actions {
   display: flex;
   justify-content: flex-end;
