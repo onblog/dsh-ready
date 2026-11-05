@@ -346,9 +346,9 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 | 产物 | 命令 | 说明 |
 | --- | --- | --- |
-| dsh-ready-1.0.17-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
-| dsh-ready-1.0.17-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
-| dsh-ready-1.0.17-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
+| dsh-ready-1.0.18-arm64.dmg | `npm run dist:mac:arm64` | Apple Silicon 机器 |
+| dsh-ready-1.0.18-x64.dmg | `npm run dist:mac:x64` | Intel 机器；可在 Apple Silicon 上交叉构建 |
+| dsh-ready-1.0.18-x64.exe | `npm run dist:win` | Windows 安装包；在 macOS 上构建不需要 Wine |
 
 - 交叉构建：Apple Silicon 上打 Intel 包时，electron-builder 自动下载 x64 版 Electron，产物是可运行的 x86_64 应用。
 - 三个平台都只检测用户环境里的 Node/npm，不自动安装或修改；缺失或版本不满足要求时显示本地化的 Node.js 官网安装链接。
