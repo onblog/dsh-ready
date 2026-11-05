@@ -39,6 +39,21 @@ hardcoded in the repository. Bind it once in Cloudflare Dashboard → Workers & 
 `dsh-ready` → Settings → Domains & Routes; `wrangler deploy` leaves that binding as it is.
 `workers_dev` and `preview_urls` are both false, so the site is only reachable on its domain.
 
+## Build machine network
+
+`electron-builder` downloads the Electron runtime per target through `@electron/get`, which
+ignores `HTTP(S)_PROXY` unless it is explicitly enabled. A direct connection to the release CDN
+is unreliable here — a first `dist:win` stalled for ten minutes and then failed with
+`connect ETIMEDOUT`. Build behind the local proxy instead:
+
+```sh
+export ELECTRON_GET_USE_PROXY=1 HTTPS_PROXY=http://127.0.0.1:7890 HTTP_PROXY=http://127.0.0.1:7890
+npm run dist:mac:arm64 && npm run dist:mac:x64 && npm run dist:win
+```
+
+Once an artifact is in `~/Library/Caches/electron`, later builds of that target skip the
+download entirely, so only the first build after a version bump touches the network.
+
 ## Release process (desktop + site)
 
 Before packaging the desktop app, put a `.env` in the repo root (already git-ignored) with

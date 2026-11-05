@@ -37,6 +37,20 @@ SITE_URL=https://dsh.wordtk.com npm run deploy
 Cloudflare Dashboard → Workers & Pages → `dsh-ready` → Settings → Domains & Routes 绑定一次，
 `wrangler deploy` 不会改动它；`workers_dev` 与 `preview_urls` 均为 false。
 
+## 构建机的网络
+
+`electron-builder` 按目标架构下载 Electron 运行时（走 `@electron/get`），而它**只认
+`ELECTRON_GET_USE_PROXY` 这个开关**，光设 `HTTP(S)_PROXY` 不生效。直连发布 CDN 在这里不稳定：
+首次 `dist:win` 卡了十分钟后 `connect ETIMEDOUT` 失败。请带本地代理构建：
+
+```sh
+export ELECTRON_GET_USE_PROXY=1 HTTPS_PROXY=http://127.0.0.1:7890 HTTP_PROXY=http://127.0.0.1:7890
+npm run dist:mac:arm64 && npm run dist:mac:x64 && npm run dist:win
+```
+
+某个产物进了 `~/Library/Caches/electron` 之后，同目标后续构建不再联网，只有版本升级后的
+第一次构建会走网络。
+
 ## 发版流程（桌面端 + 官网）
 
 桌面端打包前，仓库根目录放一个 `.env`（已被 git 忽略）写入两个变量，`electron-builder`
