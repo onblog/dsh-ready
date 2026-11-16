@@ -9,6 +9,7 @@ import {
   parseDshArgs,
   resolveLanguage,
   NPM_REGISTRIES,
+  OPEN_TARGETS,
 } from './paths.mjs'
 import { push, getLines, clearLines, onLine } from './logger.mjs'
 import {
@@ -24,7 +25,7 @@ import {
   primeGlobalPrefix,
 } from './dsh.mjs'
 import { resolveRuntime, runtimeState, clearRuntimeCache, logToolchain } from './runtime.mjs'
-import { start, stop, currentState, sleepInhibitor } from './server.mjs'
+import { start, stop, currentState, sleepInhibitor, onAccessUrl } from './server.mjs'
 import { findExternalDsh, killExternalDsh, waitPortFree } from './external.mjs'
 import { buildUpgradePlan, applyUpgradePlan, removeProfileConfig, uninstallProfilePlugins } from './plugins.mjs'
 import { ensureShellEnv } from './shellenv.mjs'
@@ -32,6 +33,13 @@ import { compareVersions, parseVersion } from './semver.mjs'
 import { mainT } from './i18n.mjs'
 import { reportLaunch, checkUpdate, canOpenExternally, SITE_URL, GITHUB_URL, DEVELOPER } from './telemetry.mjs'
 import { permissionsSupported, readPermissions, openPermissionSettings } from './permissions.mjs'
+import {
+  openAppWindow,
+  syncAppWindow,
+  focusAppWindow,
+  closeAppWindow,
+  hasAppWindow,
+} from './appwindow.mjs'
 
 const THEMES = ['light', 'dark']
 const LANGS = ['zh', 'en']
@@ -140,13 +148,87 @@ function trayIcon() {
     .resize({ width: 16, height: 16 })
 }
 
-/** The tray menu, rebuilt on every sync so its labels follow the language switch. */
+/**
+ * The token URL is printed a moment after DSH is ready. Give it a short grace period so
+ * "Open DSH" does not normally open the bare localhost URL, but still fall back to it.
+ */
+async function accessUrl() {
+  const deadline = Date.now() + 2500
+  while (Date.now() < deadline) {
+    const live = currentState()
+    if (live.openUrl) return live.openUrl
+    if (!live.running) return null
+    await new Promise((resolve) => setTimeout(resolve, 120))
+  }
+  const live = currentState()
+  return live.openUrl || live.url
+}
+
+/**
+ * Open the running DSH using the persisted "打开方式". The button and the tray menu both
+ * land here, so the setting cannot drift between two entry points.
+ */
+async function openDsh() {
+  const target = await accessUrl()
+  if (!target) return { ok: false, message: mainT(resolveLang(), 'msg.notRunning') }
+
+  if (readSettings().openTarget === 'browser') {
+    push('正在用浏览器打开 DSH')
+    try {
+      await shell.openExternal(target)
+      return { ok: true, target: 'browser' }
+    } catch (error) {
+      return { ok: false, message: error.message }
+    }
+  }
+
+  push('正在打开 DSH 窗口')
+  try {
+    if (!openAppWindow(target)) return { ok: false, message: mainT(resolveLang(), 'msg.notRunning') }
+    return { ok: true, target: 'app' }
+  } catch (error) {
+    return { ok: false, message: error.message }
+  }
+}
+
+/**
+ * Tray click: always bring the launcher forward first, then the DSH window when the
+ * app-window target is selected. Browser mode still only touches our own windows — the
+ * tray is "bring the app back", not "open a browser tab".
+ */
+function trayClick() {
+  showMainWindow()
+  const live = currentState()
+  const target = live.openUrl || live.url
+  if (!target) return
+  if (readSettings().openTarget === 'browser') {
+    if (hasAppWindow()) focusAppWindow()
+    return
+  }
+  try {
+    openAppWindow(target)
+  } catch (error) {
+    push(`打开 DSH 窗口失败：${error.message}`)
+  }
+}
+
+/** The tray menu, rebuilt on every sync so its labels and enabled state stay current. */
 function trayMenu() {
+  const live = currentState()
+  const running = Boolean(live.openUrl || live.url)
+  const lang = resolveLang()
   return Menu.buildFromTemplate([
-    { label: resolveLang() === 'zh' ? '显示主窗口' : 'Show main window', click: showMainWindow },
+    { label: mainT(lang, 'tray.openDsh'), enabled: running, click: () => { void openDsh() } },
+    { label: mainT(lang, 'tray.showMain'), click: showMainWindow },
     { type: 'separator' },
-    { label: resolveLang() === 'zh' ? '退出' : 'Quit', click: requestQuitFromTray },
+    { label: mainT(lang, 'tray.quit'), click: requestQuitFromTray },
   ])
+}
+
+/** Rebuild the attached menu on Windows/Linux; macOS builds it fresh on right-click. */
+function syncTrayMenu() {
+  if (!tray || process.platform === 'darwin') return
+  tray.setContextMenu(trayMenu())
 }
 
 /** Keep one native notification-area/menu-bar icon in sync with the persisted setting. */
@@ -159,13 +241,13 @@ function syncTray() {
   if (!tray) {
     tray = new Tray(trayIcon())
     // One click on the whale always brings the window back — no double-click handler.
-    tray.on('click', showMainWindow)
+    tray.on('click', trayClick)
     // macOS pops an attached menu on *any* click, which would swallow that first click,
     // so there the menu is bound to the right button only and pushed manually.
     if (process.platform === 'darwin') tray.on('right-click', () => tray.popUpContextMenu(trayMenu()))
   }
   tray.setToolTip(resolveLang() === 'zh' ? 'DSH 就位' : 'DSH Ready')
-  if (process.platform !== 'darwin') tray.setContextMenu(trayMenu())
+  if (process.platform !== 'darwin') syncTrayMenu()
 }
 
 /** Refresh the "DSH started another way" detection result; returns whether it changed. */
@@ -217,6 +299,11 @@ async function buildState() {
 async function emitState() {
   const state = await buildState()
   broadcast({ type: 'state', state })
+  // The app window is a view, not part of the service state machine: keep its title and
+  // token URL in step here, and never close it because DSH stopped.
+  const live = currentState()
+  syncAppWindow({ running: Boolean(live.running), openUrl: live.openUrl })
+  syncTrayMenu()
   return state
 }
 
@@ -277,6 +364,15 @@ function createWindow() {
 }
 
 onLine((line) => broadcast({ type: 'log', line }))
+
+// The token URL is printed a moment after the process starts and disappears when it exits.
+// React immediately: the app window must reload the new token without waiting for a state tick.
+onAccessUrl(() => {
+  const live = currentState()
+  syncAppWindow({ running: Boolean(live.running), openUrl: live.openUrl })
+  syncTrayMenu()
+  void emitState()
+})
 
 ipcMain.handle('state:get', async () => {
   // Return local state for the first screen first; the registry latest version is fetched in the background and pushed later.
@@ -395,6 +491,8 @@ ipcMain.handle('dsh:uninstall', async () => {
       }
       push('卸载完成：用户环境里的 Node 与 npm 保持原样，用户数据 ~/.dsh 保留')
     })
+    // DSH is gone; leaving an app window pointing at a dead service is just a zombie.
+    closeAppWindow()
     return {
       ok: true,
       message: localManaged ? mainT(resolveLang(), 'msg.uninstalled') : mainT(resolveLang(), 'msg.systemUninstall'),
@@ -490,21 +588,14 @@ ipcMain.handle('dsh:restart', async () => {
   }
 })
 
-ipcMain.handle('dsh:open', async () => {
-  const live = currentState()
-  const target = live.openUrl || live.url
-  if (!target) return { ok: false, message: mainT(resolveLang(), 'msg.notRunning') }
-  push('正在用浏览器打开 DSH')
-  await shell.openExternal(target)
-  return { ok: true }
-})
+ipcMain.handle('dsh:open', () => openDsh())
 
 /** The settings snapshot the settings sheet renders; app:info covers version and auto launch. */
 function publicSettings() {
   const settings = readSettings()
   return {
     port: settings.port,
-    openInBrowser: settings.openInBrowser,
+    openTarget: settings.openTarget,
     showTray: settings.showTray,
     showDock: settings.showDock,
     preventSleep: settings.preventSleep,
@@ -522,7 +613,7 @@ ipcMain.handle('settings:set', async (_event, patch) => {
   const next = {}
   const dropped = []
   if (patch && typeof patch === 'object') {
-    if (typeof patch.openInBrowser === 'boolean') next.openInBrowser = patch.openInBrowser
+    if (OPEN_TARGETS.includes(patch.openTarget)) next.openTarget = patch.openTarget
     if (typeof patch.showTray === 'boolean') next.showTray = patch.showTray
     if (typeof patch.showDock === 'boolean') next.showDock = patch.showDock
     // The switch only exists on macOS; other platforms refuse the write instead of storing
@@ -689,7 +780,12 @@ const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 } else {
-  app.on('second-instance', () => showMainWindow())
+  app.on('second-instance', () => {
+    // A second launch means "bring the app back": the launcher first, then the workspace
+    // when one is open and DSH is running.
+    showMainWindow()
+    if (hasAppWindow() && currentState().running) focusAppWindow()
+  })
 }
 
 app.whenReady().then(async () => {
@@ -718,7 +814,11 @@ app.whenReady().then(async () => {
   setInterval(async () => {
     if (task) return
     try {
-      if (await refreshExternal()) await emitState()
+      const wasRunning = currentState().running
+      const changed = await refreshExternal()
+      // A crashed/exited DSH has to reach the UI too; external-instance changes alone
+      // would leave the button and the app-window title saying "running".
+      if (changed || currentState().running !== wasRunning) await emitState()
     } catch {
       // Keep the previous result when detection fails.
     }
@@ -755,8 +855,12 @@ app.on('before-quit', (event) => {
 })
 
 app.on('activate', () => {
+  // Dock activation follows the workspace: a running DSH with its window open wins,
+  // otherwise the launcher is the window to show.
+  if (hasAppWindow() && currentState().running) {
+    focusAppWindow()
+    return
+  }
   if (!mainWindow) return
-  if (mainWindow.isMinimized()) mainWindow.restore()
-  mainWindow.show()
-  mainWindow.focus()
+  showMainWindow()
 })

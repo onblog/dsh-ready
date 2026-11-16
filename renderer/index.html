@@ -86,11 +86,13 @@
 
         <div class="row">
           <div class="row-label">
-            <span data-i18n="sheet.openInBrowser">启动后自动打开浏览器</span>
+            <span id="openTargetLabel" data-i18n="sheet.openTarget">打开方式</span>
+            <span class="row-note" data-i18n="sheet.openTargetHint">只影响「打开 DSH」</span>
           </div>
-          <button id="openInBrowser" class="switch" type="button" role="switch" aria-checked="false">
-            <span class="switch-knob"></span>
-          </button>
+          <div class="seg" id="openTargetSeg" role="radiogroup" aria-labelledby="openTargetLabel">
+            <button class="seg-item" type="button" role="radio" data-value="app" aria-checked="true" data-i18n="sheet.openTargetApp">应用窗口</button>
+            <button class="seg-item" type="button" role="radio" data-value="browser" aria-checked="false" data-i18n="sheet.openTargetBrowser">浏览器</button>
+          </div>
         </div>
 
         <div class="row">

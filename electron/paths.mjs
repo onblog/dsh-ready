@@ -18,8 +18,9 @@ const DEFAULT_SETTINGS = {
   theme: 'dark',
   lang: 'system',
   port: 3080,
-  // Open the browser once DSH is up. Off by default: launching must never hijack the screen.
-  openInBrowser: false,
+  // Where "Open DSH" goes: the Electron app window (default) or the system browser.
+  // This is deliberately not an auto-open switch: starting DSH never opens anything.
+  openTarget: 'app',
   // Show the notification-area/menu-bar icon. Users can disable it from settings.
   showTray: true,
   // macOS only: keep a Dock icon. Off by default so the launcher lives in the menu bar
@@ -40,6 +41,7 @@ const DEFAULT_SETTINGS = {
 }
 
 export const NPM_REGISTRIES = ['auto', 'official', 'mirror']
+export const OPEN_TARGETS = ['app', 'browser']
 
 export function isValidPort(port) {
   return Number.isInteger(port) && port >= 1 && port <= 65535
@@ -149,17 +151,26 @@ export function readSettings() {
   } catch {
     stored = {}
   }
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) stored = {}
   const port = Number(stored.port)
   // Themes are an explicit binary choice: any legacy "system" value or unknown input falls back to dark.
   const theme = stored.theme === 'light' || stored.theme === 'dark' ? stored.theme : DEFAULT_SETTINGS.theme
   const bool = (value, fallback) => (typeof value === 'boolean' ? value : fallback)
+  // `openInBrowser` was the old auto-open switch. Keep its intent for one release: users who
+  // had it on preferred the browser, everyone else gets the new app window by default.
+  const { openInBrowser: legacyOpenInBrowser, ...storedRest } = stored
+  const openTarget = OPEN_TARGETS.includes(stored.openTarget)
+    ? stored.openTarget
+    : legacyOpenInBrowser === true
+      ? 'browser'
+      : DEFAULT_SETTINGS.openTarget
   return {
     ...DEFAULT_SETTINGS,
-    ...stored,
+    ...storedRest,
     theme,
     port: isValidPort(port) ? port : DEFAULT_SETTINGS.port,
     lang: stored.lang === 'zh' || stored.lang === 'en' || stored.lang === 'system' ? stored.lang : DEFAULT_SETTINGS.lang,
-    openInBrowser: bool(stored.openInBrowser, DEFAULT_SETTINGS.openInBrowser),
+    openTarget,
     showTray: bool(stored.showTray, DEFAULT_SETTINGS.showTray),
     showDock: bool(stored.showDock, DEFAULT_SETTINGS.showDock),
     preventSleep: bool(stored.preventSleep, DEFAULT_SETTINGS.preventSleep),

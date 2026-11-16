@@ -4,7 +4,7 @@
 
 DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开发者需要装终端、装 Node、记命令，还要处理端口与进程残留。本应用把「安装、启动、停止、状态、日志、升级、卸载」七件事收进一个极简 Electron 桌面应用，双击即用。
 
-明确的减法边界：不做插件管理、不做 MCP/技能、不做多实例、不做整合包、不自建 DSH 界面，只启动官方 Web 页面并用系统浏览器打开。同一时刻只管理一个 DSH 实例。
+明确的减法边界：不做插件管理、不做 MCP/技能、不做多实例、不做整合包、不自建 DSH 界面，只启动官方 Web 页面并装进独立应用窗口（也可选浏览器）。同一时刻只管理一个 DSH 实例。
 
 ## 整体流程
 
@@ -15,7 +15,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 5. 检测外部实例 → 每 4 秒扫描系统里的 `dsh web` 进程，只认监听「目标端口」的实例；命中时状态显示「已运行（外部）」，可停止或一键接管重启，其它端口的 dsh 不接管。
 6. 运行时 → 读取登录 shell 的 Node/npm 并打印版本；缺 Node、版本低于 22.18 或缺 npm 时，不自动修改用户环境，提示用户前往 Node.js 中文官网下载页手动安装。
 7. 安装 → `npm install -g @deepseek-ai/dsh@<版本>` 装到 npm 的默认全局前缀（nvm/Homebrew 的用户级 Node 都可写），不加 `--prefix`、不需要 sudo。
-8. 启动 → `dsh web --no-open --port <目标端口>`，端口被占用时直接报错并提示改端口；从日志解析带 token 的地址，就绪后用系统浏览器打开。macOS 上开启「阻止空闲休眠」时，整条命令外面再套一层 `caffeinate -i`（caffeinate 把工具换成自己的 pid 执行，另 fork 一个断言持有进程），DSH 退出时断言随之释放。
+8. 启动 → `dsh web --no-open --port <目标端口>`，端口被占用时直接报错并提示改端口；从日志解析带 token 的地址。启动本身不打开任何窗口，由「打开 DSH」按「打开方式」决定进应用窗口还是浏览器。macOS 上开启「阻止空闲休眠」时，整条命令外面再套一层 `caffeinate -i`（caffeinate 把工具换成自己的 pid 执行，另 fork 一个断言持有进程），DSH 退出时断言随之释放。
 9. 运行中 → stdout/stderr 实时流入日志面板并落盘；状态由进程存活 + HTTP 探测共同判定。
 10. 停止 → 先 SIGTERM 进程组，超时 SIGKILL；应用退出时自动停止。
 11. 升级 → 版本下拉只在「安装流程」和「升级流程」里出现。升级分两步：先出升级计划，再执行。
@@ -140,7 +140,18 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 ### `dsh:open`
 
-用系统浏览器打开当前地址（带 token），无请求参数，响应 `{ ok }`。
+按持久化的「打开方式」打开当前带 token 的地址：应用窗口（默认）或系统浏览器。无请求参数，响应 `{ ok, target }`。
+
+### 应用窗口
+
+用一个独立的 `BrowserWindow` 加载 token 地址，和启动器窗口、DSH 进程都解耦：
+
+- 关闭它只是关闭视图，托管的 DSH 继续运行。
+- 停止 DSH 时窗口保留，标题追加「· 已停止」（页面自己会显示「重新连接中...」）；DSH 恢复运行后去掉后缀。
+- DSH 每次启动都会打印新的 token，所以重新启动时把已有窗口重载到新地址，不重建窗口。
+- 几何信息存在 `app-window.json`，恢复时按当前显示器的工作区夹取，避免窗口跑到已拔掉的屏幕上。
+- 外链与 `window.open` 交给系统浏览器；窗口内只允许停留在本地 DSH origin；下载直接落到「下载」目录，不弹系统保存框。
+- 启动器不会自动创建这个窗口，只有「打开 DSH」、托盘菜单、以及托盘左键（打开方式为应用窗口时）会创建它。
 
 ### `log:get` / `log:clear`
 
@@ -197,7 +208,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 
 ### `settings:get` / `settings:set`
 
-`settings:get` 无参数，返回 `{ port, openInBrowser, showTray, showDock, preventSleep, telemetry, autoUpdateCheck, npmRegistry, proxy, dshArgs }`。
+`settings:get` 无参数，返回 `{ port, openTarget, showTray, showDock, preventSleep, telemetry, autoUpdateCheck, npmRegistry, proxy, dshArgs }`。
 
 `settings:set` 接受上述字段的子集，返回 `{ ok, settings, dropped, restartRequired }`：
 
@@ -209,7 +220,8 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 | restartRequired | `preventSleep` 变化且当前有就位启动的实例在跑 | true / false |
 
 写盘前统一做归一化：`proxy` 走 `normalizeProxy`（非法则存空串），`dshArgs` 走 `parseDshArgs`
-（丢弃 `--port` 等非法 token），布尔字段只接受 `true` / `false`。`npmRegistry` 变化时清空源缓存并
+（丢弃 `--port` 等非法 token），布尔字段只接受 `true` / `false`，`openTarget` 只接受
+`app` / `browser`。`npmRegistry` 变化时清空源缓存并
 重新拉取最新版本。`preventSleep` 只在 macOS 上写入（其它平台忽略该字段）。端口与主题、语言仍走各自的
 `port:set` / `theme:set` / `lang:set`。
 
@@ -262,25 +274,29 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
   开发者信息严格一行（👤 Martin · ✉ 邮箱 · GitHub · 官网，10.5px 可点击），不换行、超出裁切；
   下面是三组设置，底部是「请我喝杯咖啡」。不再展示开源协议与商业授权信息。
 - 设置项（三组，顺序固定）：
-  - **常规**：开机自启动、DSH 端口、启动后自动打开浏览器、系统托盘图标、显示 Dock 图标、阻止空闲休眠、主题、语言。
+  - **常规**：开机自启动、DSH 端口、打开方式（应用窗口 / 浏览器）、系统托盘图标、显示 Dock 图标、阻止空闲休眠、主题、语言。
   - **网络**：npm 源（自动 / 官方 / 镜像）、HTTP(S) 代理、DSH 附加启动参数。
   - **隐私与更新**：匿名启动上报、自动检查更新、检查更新、系统权限（仅 macOS）。
 - 端口只有一个入口：设置页的「DSH 端口」。主界面端口改为只读展示（`span`，不再是可点击按钮），
   DSH 正在运行或检测到外部实例时输入框锁定并提示「运行中不可修改」。
 - 开机自启动：`role="switch"` 自绘开关，主进程调 `app.setLoginItemSettings`；
   仅安装版 macOS / Windows 可用，Linux 与开发模式禁用并在开关下方给出说明。
-- 启动后自动打开浏览器：默认关闭。关闭时启动命令追加 `--no-open`，开启则由 DSH 自己拉起浏览器。
-- 系统托盘 / 菜单栏图标：默认开启，可在设置里关掉（关掉即销毁图标，不留空位）。菜单只有
-  「显示主窗口」与「退出」两项，退出即退、不再弹确认框；tooltip 与菜单文案跟随语言切换。
+- 打开方式：应用窗口（默认）或浏览器。它只控制「打开 DSH」这个动作；启动 DSH 本身不打开任何窗口，
+  启动命令始终追加 `--no-open`，DSH 不会自己再拉起第二个界面。旧的 `openInBrowser` 会迁移：
+  为 `true` 时落到 `browser`，其余落到新的 `app` 默认值。
+- 系统托盘 / 菜单栏图标：默认开启，可在设置里关掉（关掉即销毁图标，不留空位）。菜单有
+  「打开 DSH」「显示主窗口」「退出」三项；「打开 DSH」只在 DSH 运行时可用，并跟随「打开方式」。
+  tooltip 与菜单文案跟随语言切换。
   - **macOS 用单色模板图**（`renderer/assets/trayTemplate.png` 18pt + 同名 `@2x` 36pt，由同一份
     矢量栅格化，`setTemplateImage(true)` 让系统按菜单栏明暗自动着色）。图案就是 DSH 官方鲸鱼 mark
     （`@deepseek-ai/dsh-client-ui-primitives` 的 `FISH_LOGO_PATH`，viewBox 23.16×17.04），不自己另画、
     也不拿彩色应用图标去 `.resize()`：立绘缩到 16–18px 是一团糊块，而且 `resize()` 会丢掉 `@2x` 表示、
     在 Retina 上被二次放大。`nativeImage.createFromPath()` 会自动带上同目录的 `@2x` 变体，所以这里不做缩放。
   - **Windows / Linux 保留彩色图标**（`app-icon.png` 缩到 16px）。
-  - **单击即回到主窗口**（三平台一致，故意不绑 `double-click`）：macOS 若用 `setContextMenu` 会在
-    任意点击时弹菜单、把这一次单击吃掉，所以那里只在**右键**用 `popUpContextMenu` 推菜单，
-    左键留给 `click` → 唤起窗口。
+  - **单击即把应用叫回来**（三平台一致，故意不绑 `double-click`）：先显示主窗口，再在「打开方式」
+    为应用窗口且 DSH 运行时显示/聚焦 DSH 窗口；浏览器模式不会替你开浏览器标签，只在已有 DSH
+    窗口时聚焦它。macOS 若用 `setContextMenu` 会在任意点击时弹菜单、把这一次单击吃掉，所以那里
+    只在**右键**用 `popUpContextMenu` 推菜单，左键留给 `click` → 唤起窗口。
 - 显示 Dock 图标（仅 macOS）：**默认关闭** —— 启动器常驻菜单栏，不占用 Dock 位；Windows / Linux
   上整行不渲染（`row[hidden]`，连 tab 焦点一起消失）。开关走 `app.dock.hide()` / `show()`，先用 `isVisible()` 比对期望值，
   再在 1.1 秒后复核一次：Electron 文档明确 `dock.hide()` 对 1 秒内的连续调用是 no-op，快速连点时

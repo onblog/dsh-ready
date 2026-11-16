@@ -16,7 +16,11 @@ const MESSAGES = {
     'msg.autoLaunchUnsupported': '开机自启动仅在安装版的 macOS / Windows 上可用',
     'msg.autoLaunchOn': '已开启开机自启动',
     'msg.autoLaunchOff': '已关闭开机自启动',
-    'msg.autoLaunchFailed': '修改开机自启动失败'
+    'msg.autoLaunchFailed': '修改开机自启动失败',
+    'tray.openDsh': '打开 DSH',
+    'tray.showMain': '显示主窗口',
+    'tray.quit': '退出',
+    'window.stopped': '已停止'
   },
   en: {
     'msg.busy': 'Another operation is already running',
@@ -33,7 +37,11 @@ const MESSAGES = {
     'msg.autoLaunchUnsupported': 'Launch at login works only in the installed macOS / Windows build',
     'msg.autoLaunchOn': 'Launch at login enabled',
     'msg.autoLaunchOff': 'Launch at login disabled',
-    'msg.autoLaunchFailed': 'Could not change the login item'
+    'msg.autoLaunchFailed': 'Could not change the login item',
+    'tray.openDsh': 'Open DSH',
+    'tray.showMain': 'Show main window',
+    'tray.quit': 'Quit',
+    'window.stopped': 'Stopped'
   }
 }
 

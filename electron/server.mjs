@@ -29,6 +29,23 @@ let openUrl = null
 let port = null
 let stopping = false
 
+const accessUrlListeners = new Set()
+
+/** Fires whenever the token URL appears or disappears; the app window uses it to reload. */
+export function onAccessUrl(listener) {
+  accessUrlListeners.add(listener)
+}
+
+function notifyAccessUrl() {
+  for (const listener of accessUrlListeners) {
+    try {
+      listener()
+    } catch {
+      // A listener must never break the server lifecycle.
+    }
+  }
+}
+
 export function currentState() {
   return {
     running: Boolean(child),
@@ -43,7 +60,9 @@ export function currentState() {
 function captureAccessUrl(line) {
   if (!port) return
   const match = new RegExp(`(http://127\\.0\\.0\\.1:${port}/\\?token=[\\w-]+)`).exec(line)
-  if (match) openUrl = match[1]
+  if (!match || match[1] === openUrl) return
+  openUrl = match[1]
+  notifyAccessUrl()
 }
 
 function probe(target) {
@@ -107,8 +126,9 @@ export async function start(targetPort) {
   if (extra.dropped.length) push(`已忽略不可用的启动参数：${extra.dropped.join(' ')}`)
 
   const args = ['web']
-  // DSH opens the browser by itself unless --no-open is passed.
-  if (!settings.openInBrowser) args.push('--no-open')
+  // DSH Ready owns opening now: the tray/button decides between the app window and the
+  // browser. Always pass --no-open so DSH never opens a second surface behind our back.
+  args.push('--no-open')
   args.push('--port', String(desired), ...extra.args)
 
   push(`启动 DSH（端口 ${desired}${extra.args.length ? `，附加参数 ${extra.args.join(' ')}` : ''}）`)
@@ -149,6 +169,7 @@ export async function start(targetPort) {
     port = null
     url = null
     openUrl = null
+    notifyAccessUrl()
   })
 
   child.on('exit', (code, signal) => {
@@ -159,6 +180,7 @@ export async function start(targetPort) {
     url = null
     openUrl = null
     stopping = false
+    notifyAccessUrl()
   })
 
   push('等待 DSH 就绪…')

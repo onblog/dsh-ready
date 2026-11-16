@@ -35,7 +35,7 @@ cleaning up stray processes.
 | Thing | What happens |
 | --- | --- |
 | Install | Picks the version, checks your Node/npm, then installs DSH into npm's default global prefix — no sudo; a missing runtime gets an official download link |
-| Start | Reads your login shell environment, starts `dsh web` on your port, opens it in your browser |
+| Start | Reads your login shell environment, starts `dsh web` on your port; **Open DSH** then opens it in its own app window (or your browser) |
 | Stop | Stops the process group it started, or the external instance you asked it to take over |
 | Status | Running / stopped / external instance / installing / upgrading, refreshed live |
 | Logs | Live output panel plus an on-disk log, so failures are readable |
@@ -43,7 +43,8 @@ cleaning up stray processes.
 | Uninstall | Stops, removes plugins, clears the profile, removes DSH — keeps `~/.dsh` and your npm setup |
 
 It is deliberately **not** a plugin manager, not a MCP client, not a second DSH UI.
-It starts the official web UI in your system browser.
+It starts the official web UI in its own app window; the browser stays a one-setting
+alternative.
 
 > This is a community project. It is not affiliated with, endorsed by, or maintained
 > by DeepSeek.
@@ -93,11 +94,11 @@ All screenshots are captured from the real app running inside a sandbox, by
 - **Ports stay yours.** The default is 3080, edited in the settings sheet (read-only in the
   main window); a busy port is reported instead of silently shifted, so the address you see is real.
 - **Settings in one place.** The header is four icons — language (文A), theme, settings, quit.
-  The settings sheet is grouped: general (launch at login, DSH port, open the browser after
-  start, system tray icon, Dock icon on macOS, prevent idle sleep on macOS, theme, language),
-  network (npm registry auto/official/mirror, HTTP(S) proxy, extra DSH arguments) and privacy &
-  updates (anonymous launch report, daily check, manual check, plus a macOS-only system-permission
-  report that deep-links into Privacy & Security). The port is edited only there —
+  The settings sheet is grouped: general (launch at login, DSH port, how **Open DSH** opens —
+  app window or browser, system tray icon, Dock icon on macOS, prevent idle sleep on macOS, theme,
+  language), network (npm registry auto/official/mirror, HTTP(S) proxy, extra DSH arguments) and
+  privacy & updates (anonymous launch report, daily check, manual check, plus a macOS-only
+  system-permission report that deep-links into Privacy & Security). The port is edited only there —
   the main window shows it read-only — and extra arguments go through an argv whitelist, never a
   shell, with `--port` always dropped. Sponsor entry at the bottom.
 - **Your Node, your environment.** DSH Ready uses the Node and npm from your login

@@ -8,8 +8,9 @@ clean up leftover processes. DSH Ready puts seven operations into one small Elec
 window: **install, start, stop, status, logs, upgrade, uninstall**.
 
 Deliberate non-goals: no plugin management, no MCP/skills UI, no multiple instances,
-no custom DSH UI. It starts the official web UI and hands it to the system browser.
-Exactly one DSH instance is managed at a time.
+no custom DSH UI. It starts the official web UI and shows it in its own app window;
+the system browser stays a one-setting alternative. Exactly one DSH instance is managed
+at a time.
 
 ## Flow
 
@@ -39,8 +40,8 @@ Exactly one DSH instance is managed at a time.
 7. Install → `npm install -g @deepseek-ai/dsh@<version>` into npm's default global
    prefix (writable for nvm/Homebrew user-level Node). No `--prefix`, no sudo.
 8. Start → `dsh web --no-open --port <port>`; a busy port is reported as an error
-   instead of being silently shifted. Parse the tokenized URL from the logs and open
-   the browser once ready.
+   instead of being silently shifted. Parse the tokenized URL from the logs; starting
+   never opens anything, and **Open DSH** decides between the app window and the browser.
 9. Running → stdout/stderr stream into the log panel and to disk; status combines
    process liveness with an HTTP probe.
 10. Stop → SIGTERM the process group, SIGKILL after a timeout; the app stops DSH on
@@ -121,7 +122,24 @@ upgrade in that order.
 - `dsh:stop` → `{ ok }`; stops the app-started instance or the accepted external one.
 - `dsh:takeover` → `{ ok, url }` or `{ ok: false, cancelled }`; confirms the PID and
   port, stops the external process, waits for the port, then restarts from the app.
-- `dsh:open` opens the current URL (with token) in the system browser.
+- `dsh:open` opens the current token URL according to the persisted **open target**:
+  the app window (default) or the system browser.
+
+### App window
+
+A single `BrowserWindow` loads the token URL. It is deliberately independent of the
+launcher window and of the DSH process:
+
+- Closing it only closes the view; the managed DSH keeps running.
+- Stopping DSH leaves the window in place and appends "· 已停止" to its title (the page
+  itself already shows "重新连接中..."). The suffix is stripped again once DSH is running.
+- DSH prints a fresh token every start, so a restart reloads the existing window to the
+  new URL. The window is never recreated for that.
+- Geometry is remembered in `app-window.json`, clamped to a display that still exists.
+- External links and `window.open` go to the system browser; navigation stays on the
+  local DSH origin. Downloads save to the Downloads folder without a native save dialog.
+- The launcher never auto-opens this window; only **Open DSH** / the tray menu / a tray
+  click (when the open target is the app window) create it.
 
 ### `dsh:restart`
 
@@ -151,14 +169,15 @@ reads the real state back → `{ ok, supported, enabled }`. Unsupported platform
 
 ### `settings:get`, `settings:set`
 
-`settings:get` → `{ port, openInBrowser, showTray, showDock, preventSleep, telemetry,
+`settings:get` → `{ port, openTarget, showTray, showDock, preventSleep, telemetry,
 autoUpdateCheck, npmRegistry, proxy, dshArgs }`.
 `settings:set` takes any subset of those fields → `{ ok, settings, dropped, restartRequired }`,
 where `dropped` lists the launch-argument tokens the whitelist refused and `restartRequired`
 reports that a running app-managed DSH must be restarted before the new `preventSleep` value
 applies. Values are normalised before writing: `proxy` via `normalizeProxy` (illegal input
 becomes empty), `dshArgs` via `parseDshArgs` (drops `--port` and other non-whitelisted tokens),
-booleans only accept `true` / `false`; `preventSleep` is written on macOS only. A changed
+booleans only accept `true` / `false`, `openTarget` only `app` / `browser`; `preventSleep` is
+written on macOS only. A changed
 `npmRegistry` clears the registry cache and re-reads the latest version. Port, theme and
 language keep their own `port:set` / `theme:set` / `lang:set` channels.
 
@@ -214,7 +233,7 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
   never wrapped), three groups of settings, and a "Buy me a coffee" button at the bottom.
   Licence and commercial-licensing copy are no longer shown.
 - Settings groups (fixed order):
-  - **General**: launch at login, DSH port, open the browser after start, system tray icon, Dock icon, prevent idle sleep, theme, language.
+  - **General**: launch at login, DSH port, open target (app window / browser), system tray icon, Dock icon, prevent idle sleep, theme, language.
   - **Network**: npm registry (auto / official / mirror), HTTP(S) proxy, extra DSH arguments.
   - **Privacy & updates**: anonymous launch report, daily update check, manual check button, system permissions (macOS only).
 - The port has exactly one entry point: the "DSH port" row in the sheet. The main window shows it
@@ -222,12 +241,14 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
   an external instance is detected.
 - Launch at login: a custom `role="switch"` button backed by `app.setLoginItemSettings`.
   Installed macOS / Windows builds only; Linux and development mode disable it with a note.
-- Open the browser after start: off by default. When off, `--no-open` is appended to the launch
-  command; when on, DSH opens the browser itself.
+- Open DSH in: app window (default) or browser. This only controls what **Open DSH** does.
+  Starting DSH never opens anything; `--no-open` is always passed so DSH cannot open a
+  second surface. The old `openInBrowser` switch is migrated: `true` becomes `browser`,
+  everything else becomes the new `app` default.
 - System tray / menu-bar icon: on by default, switchable off from the sheet (switching off destroys
-  the icon instead of leaving a gap). The menu holds "Show main window" and "Quit" only; quitting
-  still goes through the in-app confirmation sheet, and the tooltip plus menu labels follow the
-  language switch.
+  the icon instead of leaving a gap). The menu holds "Open DSH", "Show main window" and "Quit";
+  "Open DSH" is enabled only while DSH is running and follows the open target. The tooltip and
+  menu labels follow the language switch.
   - **macOS uses a monochrome template image** — `renderer/assets/trayTemplate.png` at 18pt plus the
     matching `@2x` at 36pt, both rasterised from one drawing, with `setTemplateImage(true)` so the
     system tints it for a light or dark menu bar. The artwork is DSH's own whale mark (`FISH_LOGO_PATH`
@@ -236,10 +257,12 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
     `resize()` also drops the `@2x` representation and leaves a 1x bitmap to be upscaled on Retina.
     `nativeImage.createFromPath()` picks up the `@2x` sibling automatically, so no scaling happens here.
   - **Windows / Linux keep the colour icon** (`app-icon.png` downscaled to 16px).
-  - **One click returns to the main window** on every platform, and `double-click` is deliberately not
-    bound. On macOS an attached `setContextMenu` menu pops on *any* click and swallows that first
-    click, so the menu is pushed with `popUpContextMenu` on the right button only and the left click
-    stays with `click` -> restore the window.
+  - **One click brings the app back**: the launcher is shown first, then the DSH app window when the
+    open target is the app window and DSH is running. Browser mode never opens a browser tab from
+    the tray — it only focuses an existing DSH window. `double-click` is deliberately not bound.
+    On macOS an attached `setContextMenu` menu pops on *any* click and swallows that first click, so
+    the menu is pushed with `popUpContextMenu` on the right button only and the left click stays with
+    `click` -> restore the windows.
 - Dock icon (macOS only): **off by default** — the launcher lives in the menu bar and keeps the Dock
   free; on Windows / Linux the row is not rendered at all (`row[hidden]`, out of the tab order). The switch calls
   `app.dock.hide()` / `show()`, compares against `isVisible()` first and re-checks 1.1s later, because

@@ -101,7 +101,8 @@ const messages = {
     'steps.two.title': '点「安装 DSH」',
     'steps.two.desc': '默认装最新版，也可以在版本下拉里挑一个。',
     'steps.three.title': '点「启动」',
-    'steps.three.desc': '就绪后自动用浏览器打开，之后升级、停止都在这个窗口里。',
+    'steps.three.desc':
+      '就绪后点「打开 DSH」，默认在独立应用窗口打开，也可在设置里切成浏览器；升级、停止都在主窗口里。',
 
     'statsStrip.title': '有多少人在一起用',
     'statsStrip.sub': '只统计桌面应用上报的匿名启动信号，不含 IP、不含设备指纹；数据看板是公开的。',
@@ -226,7 +227,7 @@ const messages = {
     'steps.two.desc': 'The latest version is selected by default; the dropdown offers others.',
     'steps.three.title': 'Click “Start”',
     'steps.three.desc':
-      'It opens DSH in your browser when ready. Upgrades and stops happen in the same window.',
+      'Click “Open DSH” when ready: it opens in its own app window by default, or in your browser if you prefer. Upgrades and stops stay in the launcher.',
 
     'statsStrip.title': 'Who is using it',
     'statsStrip.sub':

@@ -57,7 +57,7 @@ const els = {
   autoLaunchNote: $('autoLaunchNote'),
   portField: $('portField'),
   portNote: $('portNote'),
-  openInBrowser: $('openInBrowser'),
+  openTargetSeg: $('openTargetSeg'),
   showTray: $('showTray'),
   showDock: $('showDock'),
   showDockRow: $('showDockRow'),
@@ -972,7 +972,9 @@ function renderPreventSleep() {
 /** Paint every control from the settings snapshot; called on open, after every write and on language change. */
 function renderSettingsSheet() {
   if (!settings) return
-  setSwitch(els.openInBrowser, Boolean(settings.openInBrowser))
+  for (const item of els.openTargetSeg.querySelectorAll('.seg-item')) {
+    item.setAttribute('aria-checked', item.dataset.value === (settings.openTarget === 'browser' ? 'browser' : 'app') ? 'true' : 'false')
+  }
   setSwitch(els.showTray, settings.showTray !== false)
   renderShowDock()
   renderPreventSleep()
@@ -1335,7 +1337,6 @@ function bindSwitch(button, key) {
   })
 }
 
-bindSwitch(els.openInBrowser, 'openInBrowser')
 bindSwitch(els.showTray, 'showTray')
 bindSwitch(els.showDock, 'showDock')
 bindSwitch(els.telemetry, 'telemetry')
@@ -1384,6 +1385,11 @@ els.preventSleep.addEventListener('click', async () => {
 els.registrySeg.addEventListener('click', (event) => {
   const item = event.target.closest('.seg-item')
   if (item) void patchSettings({ npmRegistry: item.dataset.value })
+})
+
+els.openTargetSeg.addEventListener('click', (event) => {
+  const item = event.target.closest('.seg-item')
+  if (item) void patchSettings({ openTarget: item.dataset.value })
 })
 
 /**
