@@ -135,9 +135,18 @@ launcher window and of the DSH process:
   itself already shows "重新连接中..."). The suffix is stripped again once DSH is running.
 - DSH prints a fresh token every start, so a restart reloads the existing window to the
   new URL. The window is never recreated for that.
+- On macOS the window uses a hidden title bar (`hiddenInset`) so the web UI reaches the
+  top edge; the traffic lights float over the sidebar. Injected CSS shifts the
+  "deepseek HARNESS" wordmark clear of them (the whale mark gives way to the controls),
+  turns the sidebar brand row and the web header into drag regions, and restores the
+  original wordmark in fullscreen, where the traffic lights disappear. Windows / Linux
+  keep the native title bar. The class suffixes used by the CSS come from DSH's CSS
+  modules; if they change, the rules stop applying without breaking the page.
 - Geometry is remembered in `app-window.json`, clamped to a display that still exists.
 - External links and `window.open` go to the system browser; navigation stays on the
   local DSH origin. Downloads save to the Downloads folder without a native save dialog.
+- The window title still carries "· 已停止" for Mission Control, but the hidden title
+  bar no longer renders it; DSH's own "重新连接中..." is the in-window signal.
 - The launcher never auto-opens this window; only **Open DSH** / the tray menu / a tray
   click (when the open target is the app window) create it.
 

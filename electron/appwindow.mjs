@@ -18,6 +18,31 @@ const DEFAULT_WIDTH = 1280
 const DEFAULT_HEIGHT = 860
 const MIN_WIDTH = 900
 const MIN_HEIGHT = 600
+const HIDDEN_TITLEBAR = process.platform === 'darwin'
+
+/**
+ * macOS draws the traffic lights over the web content when the title bar is hidden.
+ * DSH's sidebar has its brand row exactly there, so shift the wordmark clear of the
+ * controls, hide the whale mark they replace, and turn the web header into a drag area.
+ * The class suffixes survive the CSS-module hashing; if DSH renames them the rules simply
+ * stop applying instead of breaking the page.
+ */
+const MAC_TITLEBAR_CSS = `
+  [class*="logoRow"] { -webkit-app-region: drag; }
+  [class*="logoRow"] button { -webkit-app-region: no-drag; }
+  button[class*="brand"] { -webkit-app-region: no-drag; }
+  body.dsh-titlebar-inset button[class*="brand"] {
+    width: 158px;
+    margin-left: 62px;
+  }
+  body.dsh-titlebar-inset [class*="brandMark"] { display: none !important; }
+  body.dsh-titlebar-inset [class*="brandIdentity"] { width: auto; }
+
+  header { -webkit-app-region: drag; }
+  header a, header button, header input, header textarea, header select,
+  header [role="button"], header [tabindex]:not([tabindex="-1"]),
+  header [aria-haspopup], header [contenteditable="true"] { -webkit-app-region: no-drag; }
+`
 
 let appWindow = null
 let baseTitle = 'DSH'
@@ -175,6 +200,30 @@ function wireDownloads(session) {
   })
 }
 
+/** Re-apply the title-bar CSS after every document load (a DSH restart replaces it). */
+function wireTitleBar(win) {
+  if (!HIDDEN_TITLEBAR) return
+  const inject = () => {
+    if (win.isDestroyed()) return
+    void win.webContents.insertCSS(MAC_TITLEBAR_CSS).catch(() => null)
+  }
+  // The traffic lights disappear in fullscreen; drop the reserved inset so the wordmark
+  // returns to its normal place, and put it back when the window leaves fullscreen.
+  const applyInset = (inset = !win.isFullScreen()) => {
+    if (win.isDestroyed()) return
+    void win.webContents
+      .executeJavaScript(`document.body.classList.toggle('dsh-titlebar-inset', ${inset})`)
+      .catch(() => null)
+  }
+  win.webContents.on('dom-ready', () => {
+    inject()
+    applyInset()
+  })
+  win.webContents.on('did-finish-load', inject)
+  win.on('enter-full-screen', () => applyInset(false))
+  win.on('leave-full-screen', () => applyInset(true))
+}
+
 /** Open the app window, or focus the one that is already open. */
 export function openAppWindow(url) {
   if (!url) return false
@@ -204,6 +253,9 @@ export function openAppWindow(url) {
     title: 'DSH',
     backgroundColor: theme === 'dark' ? '#121211' : '#f7f6f3',
     autoHideMenuBar: process.platform !== 'darwin',
+    ...(HIDDEN_TITLEBAR
+      ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 16, y: 19 } }
+      : {}),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -218,6 +270,7 @@ export function openAppWindow(url) {
   applyTitle()
   wireDownloads(win.webContents.session)
   wireNavigation(win)
+  wireTitleBar(win)
 
   win.on('page-title-updated', (event, title) => {
     event.preventDefault()
