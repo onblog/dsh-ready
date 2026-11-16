@@ -88,7 +88,9 @@ function showMainWindow() {
   mainWindow.focus()
   // With the Dock icon hidden the app has no regular activation path, so ask macOS
   // to bring us forward explicitly; otherwise the window can open behind other apps.
-  if (app.dock && !app.dock.isVisible()) app.focus({ steal: true })
+  // Skip it when the app is already active: the extra activation is what made a tray
+  // click look like it stuttered before the launcher even appeared.
+  if (app.dock && !app.dock.isVisible() && !app.isActive()) app.focus({ steal: true })
 }
 
 /** macOS only: the Dock icon is a setting, everything else has no concept of it. */
@@ -192,19 +194,15 @@ async function openDsh() {
 }
 
 /**
- * Tray click: always bring the launcher forward first, then the DSH window when the
- * app-window target is selected. Browser mode still only touches our own windows — the
- * tray is "bring the app back", not "open a browser tab".
+ * Tray click shows the launcher. An already-open DSH window is left exactly as it is:
+ * re-showing/focusing it was what made the small launcher appear to stutter. If no DSH
+ * window exists yet, the original "launcher, then workspace" still applies.
  */
 function trayClick() {
   showMainWindow()
   const live = currentState()
   const target = live.openUrl || live.url
-  if (!target) return
-  if (readSettings().openTarget === 'browser') {
-    if (hasAppWindow()) focusAppWindow()
-    return
-  }
+  if (!target || readSettings().openTarget === 'browser' || hasAppWindow()) return
   try {
     openAppWindow(target)
   } catch (error) {

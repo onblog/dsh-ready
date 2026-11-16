@@ -123,13 +123,19 @@ function applyTitle() {
   appWindow.setTitle(`${baseTitle || 'DSH'}${suffix}`)
 }
 
+/** Activate the app only when macOS would not do it for us (accessory app, another app in front). */
+function activateAppIfNeeded() {
+  if (process.platform === 'darwin' && app.dock && !app.dock.isVisible() && !app.isActive()) {
+    app.focus({ steal: true })
+  }
+}
+
 function bringToFront(win) {
   if (!win || win.isDestroyed()) return
   if (win.isMinimized()) win.restore()
   win.show()
   win.focus()
-  // With the Dock icon hidden macOS has no regular activation path; ask explicitly.
-  if (process.platform === 'darwin' && app.dock && !app.dock.isVisible()) app.focus({ steal: true })
+  activateAppIfNeeded()
 }
 
 function isSameOrigin(url) {
@@ -224,14 +230,10 @@ function wireTitleBar(win) {
   win.on('leave-full-screen', () => applyInset(true))
 }
 
-/** Open the app window, or focus the one that is already open. */
+/** Open the app window, or bring the one that is already open forward. */
 export function openAppWindow(url) {
   if (!url) return false
   if (appWindow && !appWindow.isDestroyed()) {
-    if (url !== lastLoadedUrl) {
-      lastLoadedUrl = url
-      void appWindow.loadURL(url).catch((error) => push(`DSH 窗口加载失败：${error.message}`))
-    }
     if (stopped) {
       stopped = false
       applyTitle()
