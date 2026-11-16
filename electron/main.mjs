@@ -462,6 +462,7 @@ function createWindow() {
     title: 'DSH 就位',
     backgroundColor: theme === 'dark' ? '#121211' : '#f7f6f3',
     show: false,
+    acceptFirstMouse: true,
     webPreferences: {
       preload: join(import.meta.dirname, 'preload.cjs'),
       contextIsolation: true,

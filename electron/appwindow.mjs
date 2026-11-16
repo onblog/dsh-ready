@@ -31,9 +31,10 @@ const MAC_TITLEBAR_CSS = `
   [class*="logoRow"] { -webkit-app-region: drag; }
   [class*="logoRow"] button { -webkit-app-region: no-drag; }
   button[class*="brand"] { -webkit-app-region: no-drag; }
+  body.dsh-titlebar-inset [class*="logoRow"] { gap: 4px; }
   body.dsh-titlebar-inset button[class*="brand"] {
-    width: 158px;
-    margin-left: 62px;
+    width: 157px;
+    margin-left: 67px;
   }
   body.dsh-titlebar-inset [class*="brandMark"] { display: none !important; }
   body.dsh-titlebar-inset [class*="brandIdentity"] { width: auto; }
@@ -42,6 +43,13 @@ const MAC_TITLEBAR_CSS = `
   header a, header button, header input, header textarea, header select,
   header [role="button"], header [tabindex]:not([tabindex="-1"]),
   header [aria-haspopup], header [contenteditable="true"] { -webkit-app-region: no-drag; }
+
+  /* Dialogs and popovers can overlap the drag header (the 800px settings panel is
+     vertically centred even in an 813px window). They must never inherit a drag
+     region, or their top-right controls swallow clicks. */
+  [role="dialog"], [role="dialog"] *,
+  [role="menu"], [role="menu"] *,
+  [role="listbox"], [role="listbox"] * { -webkit-app-region: no-drag; }
 `
 
 let appWindow = null
@@ -257,6 +265,9 @@ export function openAppWindow(url) {
     minWidth: MIN_WIDTH,
     minHeight: MIN_HEIGHT,
     show: false,
+    // macOS: the first click on an inactive app window should hit the control, not
+    // only activate the window. Without this a settings button appears unclickable.
+    acceptFirstMouse: true,
     title: 'DSH',
     backgroundColor: theme === 'dark' ? '#121211' : '#f7f6f3',
     autoHideMenuBar: process.platform !== 'darwin',
