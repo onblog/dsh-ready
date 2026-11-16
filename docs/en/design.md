@@ -209,6 +209,16 @@ as simplified).
   in the current language; the main process returns no baked-in Chinese reasons.
 - Console output and commands stay verbatim (dsh / npm / pnpm output is not translated).
 
+### Application menu
+
+The native menu bar is built in the main process from the same `resolveLang()` as the
+window, so its labels follow Settings → Language rather than the OS locale. macOS: the
+app menu holds About, Open Main Window, Open DSH, Services, Hide/Quit; File holds Close;
+Edit, View and Window keep their roles. Windows/Linux: File holds Open Main Window,
+Open DSH, Close and Quit, with About under Help. "Open DSH" is disabled until a token URL
+exists and follows the open target. The menu is rebuilt only when the language or the
+running state changes, so a tray/window click never rebuilds it.
+
 ## Whale-girl animation
 
 State → animation mapping (bundled assets):

@@ -62,6 +62,7 @@ function readAutoLaunch() {
 
 let mainWindow = null
 let tray = null
+let appMenuKey = ''
 let registry = null
 let latestCache = { value: null, at: 0 }
 let task = null
@@ -248,6 +249,123 @@ function syncTray() {
   if (process.platform !== 'darwin') syncTrayMenu()
 }
 
+
+/**
+ * The application menu follows the app's own language setting, not the OS locale, so the
+ * menu bar speaks the same language as the window. "Open DSH" is disabled until a token URL
+ * exists; "Open main window" is always available as the escape hatch.
+ */
+function buildAppMenu(lang, running) {
+  const t = (key) => mainT(lang, key)
+  const isMac = process.platform === 'darwin'
+  const openMain = { id: 'open-main', label: t('menu.openMain'), click: showMainWindow }
+  const openDshItem = {
+    id: 'open-dsh',
+    label: t('menu.openDsh'),
+    enabled: running,
+    click: () => { void openDsh() },
+  }
+
+  const first = isMac
+    ? {
+        label: t('menu.appName'),
+        submenu: [
+          { role: 'about', label: t('menu.about') },
+          { type: 'separator' },
+          openMain,
+          openDshItem,
+          { type: 'separator' },
+          { role: 'services', label: t('menu.services'), submenu: [] },
+          { type: 'separator' },
+          { role: 'hide', label: t('menu.hide') },
+          { role: 'hideOthers', label: t('menu.hideOthers') },
+          { role: 'unhide', label: t('menu.showAll') },
+          { type: 'separator' },
+          { role: 'quit', label: t('menu.quit') },
+        ],
+      }
+    : {
+        label: t('menu.file'),
+        submenu: [
+          openMain,
+          openDshItem,
+          { type: 'separator' },
+          { role: 'close', label: t('menu.closeWindow') },
+          { type: 'separator' },
+          { role: 'quit', label: t('menu.quit') },
+        ],
+      }
+
+  const file = isMac
+    ? { label: t('menu.file'), submenu: [{ role: 'close', label: t('menu.closeWindow') }] }
+    : null
+
+  const edit = {
+    label: t('menu.edit'),
+    submenu: [
+      { role: 'undo', label: t('menu.undo') },
+      { role: 'redo', label: t('menu.redo') },
+      { type: 'separator' },
+      { role: 'cut', label: t('menu.cut') },
+      { role: 'copy', label: t('menu.copy') },
+      { role: 'paste', label: t('menu.paste') },
+      { role: 'selectAll', label: t('menu.selectAll') },
+    ],
+  }
+
+  const view = {
+    label: t('menu.view'),
+    submenu: [
+      { role: 'reload', label: t('menu.reload') },
+      { role: 'forceReload', label: t('menu.forceReload') },
+      { role: 'toggleDevTools', label: t('menu.devTools') },
+      { type: 'separator' },
+      { role: 'resetZoom', label: t('menu.resetZoom') },
+      { role: 'zoomIn', label: t('menu.zoomIn') },
+      { role: 'zoomOut', label: t('menu.zoomOut') },
+      { type: 'separator' },
+      { role: 'togglefullscreen', label: t('menu.fullscreen') },
+    ],
+  }
+
+  const windowMenu = {
+    label: t('menu.window'),
+    submenu: [
+      { role: 'minimize', label: t('menu.minimize') },
+      ...(isMac
+        ? [
+            { role: 'zoom', label: t('menu.zoom') },
+            { type: 'separator' },
+            { role: 'front', label: t('menu.front') },
+          ]
+        : []),
+    ],
+  }
+
+  const help = isMac
+    ? null
+    : { label: t('menu.help'), submenu: [{ role: 'about', label: t('menu.about') }] }
+
+  return Menu.buildFromTemplate([
+    first,
+    ...(file ? [file] : []),
+    edit,
+    view,
+    windowMenu,
+    ...(help ? [help] : []),
+  ])
+}
+
+function syncAppMenu() {
+  const lang = resolveLang()
+  const live = currentState()
+  const running = Boolean(live.openUrl || live.url)
+  const key = `${lang}:${running ? 1 : 0}`
+  if (key === appMenuKey) return
+  appMenuKey = key
+  Menu.setApplicationMenu(buildAppMenu(lang, running))
+}
+
 /** Refresh the "DSH started another way" detection result; returns whether it changed. */
 async function refreshExternal() {
   if (currentState().running) {
@@ -302,6 +420,7 @@ async function emitState() {
   const live = currentState()
   syncAppWindow({ running: Boolean(live.running), openUrl: live.openUrl })
   syncTrayMenu()
+  syncAppMenu()
   return state
 }
 
@@ -369,6 +488,7 @@ onAccessUrl(() => {
   const live = currentState()
   syncAppWindow({ running: Boolean(live.running), openUrl: live.openUrl })
   syncTrayMenu()
+  syncAppMenu()
   void emitState()
 })
 
@@ -786,6 +906,7 @@ if (!gotLock) {
 app.whenReady().then(async () => {
   ensureDirs()
   applyDockIcon()
+  syncAppMenu()
   push('DSH 就位已启动')
   // The window need not wait for the shell environment: 2.5s at most, and loading is ensured again before starting DSH.
   await Promise.race([
