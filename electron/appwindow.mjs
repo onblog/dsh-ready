@@ -48,8 +48,8 @@ let appWindow = null
 let baseTitle = 'DSH'
 let stopped = false
 let lastLoadedUrl = null
-let boundsTimer = null
 let downloadsWired = false
+const closingWindows = new WeakSet()
 
 function readWindowState() {
   try {
@@ -233,7 +233,12 @@ function wireTitleBar(win) {
 /** Open the app window, or bring the one that is already open forward. */
 export function openAppWindow(url) {
   if (!url) return false
-  if (appWindow && !appWindow.isDestroyed()) {
+  if (
+    appWindow &&
+    !appWindow.isDestroyed() &&
+    !appWindow.webContents.isDestroyed() &&
+    !closingWindows.has(appWindow)
+  ) {
     if (stopped) {
       stopped = false
       applyTitle()
@@ -280,6 +285,7 @@ export function openAppWindow(url) {
     applyTitle()
   })
 
+  let boundsTimer = null
   const save = () => writeWindowState(win)
   win.on('resize', () => {
     clearTimeout(boundsTimer)
@@ -289,10 +295,15 @@ export function openAppWindow(url) {
     clearTimeout(boundsTimer)
     boundsTimer = setTimeout(save, 250)
   })
-  win.on('close', save)
+  win.on('close', () => {
+    closingWindows.add(win)
+    save()
+  })
   win.on('closed', () => {
     clearTimeout(boundsTimer)
-    if (appWindow === win) appWindow = null
+    closingWindows.delete(win)
+    if (appWindow !== win) return
+    appWindow = null
     lastLoadedUrl = null
     baseTitle = 'DSH'
     stopped = false
@@ -304,17 +315,6 @@ export function openAppWindow(url) {
 
   void win.loadURL(url).catch((error) => push(`DSH 窗口加载失败：${error.message}`))
   return true
-}
-
-/** Focus an existing app window; returns false when there is nothing to focus. */
-export function focusAppWindow() {
-  if (!appWindow || appWindow.isDestroyed()) return false
-  bringToFront(appWindow)
-  return true
-}
-
-export function hasAppWindow() {
-  return Boolean(appWindow && !appWindow.isDestroyed())
 }
 
 export function closeAppWindow() {

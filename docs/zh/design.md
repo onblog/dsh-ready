@@ -158,7 +158,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 - 外链与 `window.open` 交给系统浏览器；窗口内只允许停留在本地 DSH origin；下载直接落到「下载」目录，不弹系统保存框。
 - 窗口标题仍带「· 已停止」，供 Mission Control 显示；隐藏标题栏后窗口内看不到它，
   窗口内的停止信号由 DSH 自己的「重新连接中...」承担。
-- 启动器不会自动创建这个窗口；「打开 DSH」和托盘菜单会创建/聚焦它，托盘左键只在还没有 DSH 窗口时创建它。
+- 启动器不会自动创建这个窗口。「打开 DSH」、托盘菜单，以及 DSH 运行中且打开方式为应用窗口时的托盘/Dock 点击或二次启动，都会创建/聚焦它。
 
 ### `log:get` / `log:clear`
 
@@ -300,11 +300,11 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
     也不拿彩色应用图标去 `.resize()`：立绘缩到 16–18px 是一团糊块，而且 `resize()` 会丢掉 `@2x` 表示、
     在 Retina 上被二次放大。`nativeImage.createFromPath()` 会自动带上同目录的 `@2x` 变体，所以这里不做缩放。
   - **Windows / Linux 保留彩色图标**（`app-icon.png` 缩到 16px）。
-  - **单击只把主窗口叫回来**（三平台一致，故意不绑 `double-click`）：DSH 窗口已经开着时
-    刻意不碰它——之前顺带显示/聚焦它会因为大窗口抢激活，让小窗口看起来一顿一顿的。只有还没有
-    DSH 窗口时，才按原设计在主窗口之后创建它。托盘也不会替你开浏览器标签。macOS 若用
-    `setContextMenu` 会在任意点击时弹菜单、把这一次单击吃掉，所以那里只在**右键**用
-    `popUpContextMenu` 推菜单，左键留给 `click` → 唤起主窗口。
+  - **应用窗口模式下单击直接进工作台**（三平台一致，故意不绑 `double-click`）：DSH 运行中且
+    打开方式为应用窗口时，托盘/Dock 点击只打开或聚焦 DSH 窗口，完全不碰启动器；浏览器模式或
+    DSH 停止时才唤起主窗口。要回控制台走托盘菜单的「显示主窗口」。托盘不会替你开浏览器标签。
+    macOS 若用 `setContextMenu` 会在任意点击时弹菜单、把这一次单击吃掉，所以那里只在**右键**用
+    `popUpContextMenu` 推菜单，左键留给 `click` → 打开首选窗口。
 - 显示 Dock 图标（仅 macOS）：**默认关闭** —— 启动器常驻菜单栏，不占用 Dock 位；Windows / Linux
   上整行不渲染（`row[hidden]`，连 tab 焦点一起消失）。开关走 `app.dock.hide()` / `show()`，先用 `isVisible()` 比对期望值，
   再在 1.1 秒后复核一次：Electron 文档明确 `dock.hide()` 对 1 秒内的连续调用是 no-op，快速连点时

@@ -33,13 +33,7 @@ import { compareVersions, parseVersion } from './semver.mjs'
 import { mainT } from './i18n.mjs'
 import { reportLaunch, checkUpdate, canOpenExternally, SITE_URL, GITHUB_URL, DEVELOPER } from './telemetry.mjs'
 import { permissionsSupported, readPermissions, openPermissionSettings } from './permissions.mjs'
-import {
-  openAppWindow,
-  syncAppWindow,
-  focusAppWindow,
-  closeAppWindow,
-  hasAppWindow,
-} from './appwindow.mjs'
+import { openAppWindow, syncAppWindow, closeAppWindow } from './appwindow.mjs'
 
 const THEMES = ['light', 'dark']
 const LANGS = ['zh', 'en']
@@ -194,20 +188,26 @@ async function openDsh() {
 }
 
 /**
- * Tray click shows the launcher. An already-open DSH window is left exactly as it is:
- * re-showing/focusing it was what made the small launcher appear to stutter. If no DSH
- * window exists yet, the original "launcher, then workspace" still applies.
+ * The "app as the primary surface" rule shared by the tray, Dock and a second launch:
+ * while DSH runs with the app-window target, go straight to that window and leave the
+ * launcher alone. Browser mode, a stopped service or a missing token fall back to the
+ * launcher; the tray menu's "Show main window" is always the explicit escape hatch.
  */
-function trayClick() {
-  showMainWindow()
+function openPreferredSurface() {
   const live = currentState()
   const target = live.openUrl || live.url
-  if (!target || readSettings().openTarget === 'browser' || hasAppWindow()) return
+  if (!live.running || readSettings().openTarget !== 'app' || !target) return false
   try {
     openAppWindow(target)
+    return true
   } catch (error) {
     push(`打开 DSH 窗口失败：${error.message}`)
+    return false
   }
+}
+
+function trayClick() {
+  if (!openPreferredSurface()) showMainWindow()
 }
 
 /** The tray menu, rebuilt on every sync so its labels and enabled state stay current. */
@@ -779,10 +779,7 @@ if (!gotLock) {
   app.quit()
 } else {
   app.on('second-instance', () => {
-    // A second launch means "bring the app back": the launcher first, then the workspace
-    // when one is open and DSH is running.
-    showMainWindow()
-    if (hasAppWindow() && currentState().running) focusAppWindow()
+    if (!openPreferredSurface()) showMainWindow()
   })
 }
 
@@ -853,12 +850,7 @@ app.on('before-quit', (event) => {
 })
 
 app.on('activate', () => {
-  // Dock activation follows the workspace: a running DSH with its window open wins,
-  // otherwise the launcher is the window to show.
-  if (hasAppWindow() && currentState().running) {
-    focusAppWindow()
-    return
-  }
-  if (!mainWindow) return
-  showMainWindow()
+  // Dock activation follows the app-window target: a running DSH with the app target
+  // opens/focuses that window; browser mode or a stopped service shows the launcher.
+  if (!openPreferredSurface()) showMainWindow()
 })

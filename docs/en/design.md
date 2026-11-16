@@ -147,8 +147,8 @@ launcher window and of the DSH process:
   local DSH origin. Downloads save to the Downloads folder without a native save dialog.
 - The window title still carries "· 已停止" for Mission Control, but the hidden title
   bar no longer renders it; DSH's own "重新连接中..." is the in-window signal.
-- The launcher never auto-opens this window; **Open DSH** and the tray menu create and
-  focus it, and a tray click creates it only when no DSH window exists yet.
+- The launcher never auto-opens this window. **Open DSH**, the tray menu, and a tray/Dock
+  click or second launch while DSH runs with the app target selected create and focus it.
 
 ### `dsh:restart`
 
@@ -266,13 +266,14 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
     `resize()` also drops the `@2x` representation and leaves a 1x bitmap to be upscaled on Retina.
     `nativeImage.createFromPath()` picks up the `@2x` sibling automatically, so no scaling happens here.
   - **Windows / Linux keep the colour icon** (`app-icon.png` downscaled to 16px).
-  - **One click brings the launcher back**: the DSH window is left untouched when it is
-    already open — re-showing or focusing it made the small launcher feel like it stuttered.
-    Only when no DSH window exists yet does the click create it after the launcher. The tray
-    never opens a browser tab. `double-click` is deliberately not bound. On macOS an attached
+  - **One click goes to the workspace in app mode**: when DSH is running and the app target
+    is selected, the tray/Dock click opens or focuses the DSH window and leaves the launcher
+    alone; in browser mode or while stopped it brings the launcher. The tray menu's "Show
+    main window" is the explicit way back to the control panel. The tray never opens a
+    browser tab. `double-click` is deliberately not bound. On macOS an attached
     `setContextMenu` menu pops on *any* click and swallows that first click, so the menu is
     pushed with `popUpContextMenu` on the right button only and the left click stays with
-    `click` -> restore the launcher.
+    `click` -> the preferred surface.
 - Dock icon (macOS only): **off by default** — the launcher lives in the menu bar and keeps the Dock
   free; on Windows / Linux the row is not rendered at all (`row[hidden]`, out of the tab order). The switch calls
   `app.dock.hide()` / `show()`, compares against `isVisible()` first and re-checks 1.1s later, because
