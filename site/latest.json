@@ -1,9 +1,9 @@
 {
-  "version": "1.2.3",
-  "released_at": "2026-11-16",
+  "version": "1.2.4",
+  "released_at": "2026-11-17",
   "files": {
-    "arm64":  { "key": "dsh-ready/releases/dsh-ready-1.2.3-arm64.dmg", "name": "dsh-ready-1.2.3-arm64.dmg", "size": 127109275, "sha256": "ff58049721e8224f8cb1287039f907098887ca71a015f9c9c7ac57a0783822e3" },
-    "x64":    { "key": "dsh-ready/releases/dsh-ready-1.2.3-x64.dmg", "name": "dsh-ready-1.2.3-x64.dmg", "size": 134150556, "sha256": "f657478ad73e78c657284b901231dc70823a7440755c6d462ec85970ec5a06a4" },
-    "win-x64": { "key": "dsh-ready/releases/dsh-ready-1.2.3-x64.exe", "name": "dsh-ready-1.2.3-x64.exe", "size": 125437669, "sha256": "bb85340ad2063c2e367c145318080e903ed0cd7a72abaac378c921a9381903bc" }
+    "arm64":  { "key": "dsh-ready/releases/dsh-ready-1.2.4-arm64.dmg", "name": "dsh-ready-1.2.4-arm64.dmg", "size": 127109217, "sha256": "c97c1aad36fd8d6c4434496193cb37da941239f31018ca87cc3edc018f019c54" },
+    "x64":    { "key": "dsh-ready/releases/dsh-ready-1.2.4-x64.dmg", "name": "dsh-ready-1.2.4-x64.dmg", "size": 134150514, "sha256": "df96335ba07da9d9157d3f1babd85a0db41d44f5efc53ed356f4ca58146a770b" },
+    "win-x64": { "key": "dsh-ready/releases/dsh-ready-1.2.4-x64.exe", "name": "dsh-ready-1.2.4-x64.exe", "size": 125437788, "sha256": "977fca4cf3a4fda93a81b525aaae319c073a9ed2c1a3eff6be8c41332bc210b1" }
   }
 }
