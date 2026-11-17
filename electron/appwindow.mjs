@@ -31,10 +31,9 @@ const MAC_TITLEBAR_CSS = `
   [class*="logoRow"] { -webkit-app-region: drag; }
   [class*="logoRow"] button { -webkit-app-region: no-drag; }
   button[class*="brand"] { -webkit-app-region: no-drag; }
-  body.dsh-titlebar-inset [class*="logoRow"] { gap: 4px; }
   body.dsh-titlebar-inset button[class*="brand"] {
-    width: 157px;
-    margin-left: 67px;
+    width: 158px;
+    margin-left: 62px;
   }
   body.dsh-titlebar-inset [class*="brandMark"] { display: none !important; }
   body.dsh-titlebar-inset [class*="brandIdentity"] { width: auto; }
