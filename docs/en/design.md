@@ -136,12 +136,13 @@ launcher window and of the DSH process:
 - DSH prints a fresh token every start, so a restart reloads the existing window to the
   new URL. The window is never recreated for that.
 - On macOS the window uses a hidden title bar (`hiddenInset`) so the web UI reaches the
-  top edge; the traffic lights float over the sidebar. Injected CSS shifts the
-  "deepseek HARNESS" wordmark clear of them (the whale mark gives way to the controls),
-  turns the sidebar brand row and the web header into drag regions, and restores the
-  original wordmark in fullscreen, where the traffic lights disappear. Windows / Linux
-  keep the native title bar. The class suffixes used by the CSS come from DSH's CSS
-  modules; if they change, the rules stop applying without breaking the page.
+  top edge; the traffic lights float over the sidebar. Window dragging is a 76×28 strip
+  the app creates itself in the traffic-light area, so it never depends on DSH's DOM.
+  Injected CSS only shifts the "deepseek HARNESS" wordmark clear of the controls and
+  hides the whale mark; if DSH renames those classes the rules stop matching and the
+  traffic lights may overlap the wordmark, but dragging and clicks keep working. A
+  missing brand element is logged once. In fullscreen the inset class is removed, the
+  wordmark returns and the strip is hidden. Windows / Linux keep the native title bar.
 - Geometry is remembered in `app-window.json`, clamped to a display that still exists.
 - External links and `window.open` go to the system browser; navigation stays on the
   local DSH origin. Downloads save to the Downloads folder without a native save dialog.

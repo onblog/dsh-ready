@@ -22,33 +22,31 @@ const HIDDEN_TITLEBAR = process.platform === 'darwin'
 
 /**
  * macOS draws the traffic lights over the web content when the title bar is hidden.
- * DSH's sidebar has its brand row exactly there, so shift the wordmark clear of the
- * controls, hide the whale mark they replace, and turn the web header into a drag area.
- * The class suffixes survive the CSS-module hashing; if DSH renames them the rules simply
- * stop applying instead of breaking the page.
+ * Window dragging is handled by a strip we own in the traffic-light area, so it never
+ * depends on DSH's DOM. The only DSH-specific CSS left is the cosmetic wordmark shift;
+ * if DSH renames those classes the rules stop matching and nothing functional breaks.
  */
 const MAC_TITLEBAR_CSS = `
-  [class*="logoRow"] { -webkit-app-region: drag; }
-  [class*="logoRow"] button { -webkit-app-region: no-drag; }
-  button[class*="brand"] { -webkit-app-region: no-drag; }
+  #dsh-titlebar-drag {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 76px;
+    height: 28px;
+    -webkit-app-region: drag;
+    z-index: 2147483647;
+    display: none;
+  }
+  body.dsh-titlebar-inset #dsh-titlebar-drag { display: block; }
+
+  /* Best-effort cosmetic inset: if DSH renames these classes the rules simply stop
+     matching; the traffic lights may overlap the wordmark, nothing breaks. */
   body.dsh-titlebar-inset button[class*="brand"] {
     width: 158px;
     margin-left: 62px;
   }
   body.dsh-titlebar-inset [class*="brandMark"] { display: none !important; }
   body.dsh-titlebar-inset [class*="brandIdentity"] { width: auto; }
-
-  header { -webkit-app-region: drag; }
-  header a, header button, header input, header textarea, header select,
-  header [role="button"], header [tabindex]:not([tabindex="-1"]),
-  header [aria-haspopup], header [contenteditable="true"] { -webkit-app-region: no-drag; }
-
-  /* Dialogs and popovers can overlap the drag header (the 800px settings panel is
-     vertically centred even in an 813px window). They must never inherit a drag
-     region, or their top-right controls swallow clicks. */
-  [role="dialog"], [role="dialog"] *,
-  [role="menu"], [role="menu"] *,
-  [role="listbox"], [role="listbox"] * { -webkit-app-region: no-drag; }
 `
 
 let appWindow = null
@@ -213,24 +211,53 @@ function wireDownloads(session) {
   })
 }
 
-/** Re-apply the title-bar CSS after every document load (a DSH restart replaces it). */
+/** Re-apply the title-bar CSS/strip after every document load (a DSH restart replaces it). */
 function wireTitleBar(win) {
   if (!HIDDEN_TITLEBAR) return
   const inject = () => {
     if (win.isDestroyed()) return
     void win.webContents.insertCSS(MAC_TITLEBAR_CSS).catch(() => null)
+    void win.webContents
+      .executeJavaScript(`(() => {
+        if (document.getElementById('dsh-titlebar-drag')) return
+        const strip = document.createElement('div')
+        strip.id = 'dsh-titlebar-drag'
+        document.body.appendChild(strip)
+      })()`)
+      .catch(() => null)
   }
-  // The traffic lights disappear in fullscreen; drop the reserved inset so the wordmark
-  // returns to its normal place, and put it back when the window leaves fullscreen.
+  // The traffic lights disappear in fullscreen; drop the inset class so the wordmark
+  // returns to its normal place and the drag strip is hidden.
   const applyInset = (inset = !win.isFullScreen()) => {
     if (win.isDestroyed()) return
     void win.webContents
       .executeJavaScript(`document.body.classList.toggle('dsh-titlebar-inset', ${inset})`)
       .catch(() => null)
   }
+  // Best-effort brand shift: if the DSH UI refactor removed the class, log it once and
+  // keep the window usable. Never let this check affect the drag strip.
+  const checkBrand = (attempt = 0) => {
+    if (win.isDestroyed()) return
+    void win.webContents
+      .executeJavaScript(`(() => ({
+        shell: Boolean(document.querySelector('header')),
+        brand: Boolean(document.querySelector('button[class*="brand"]')),
+      }))()`)
+      .then((state) => {
+        if (!state?.shell || state.brand) return
+        if (attempt < 4) {
+          const timer = setTimeout(() => checkBrand(attempt + 1), 1500)
+          timer.unref?.()
+          return
+        }
+        push('DSH 界面已变化：未找到标题栏品牌元素，已跳过字标右移（仅影响外观）')
+      })
+      .catch(() => null)
+  }
   win.webContents.on('dom-ready', () => {
     inject()
     applyInset()
+    checkBrand()
   })
   win.webContents.on('did-finish-load', inject)
   win.on('enter-full-screen', () => applyInset(false))
