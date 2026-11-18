@@ -1331,9 +1331,12 @@ function bindSwitch(button, key) {
     if (result?.ok) {
       settings = { ...(settings ?? {}), ...result.settings }
       renderSettingsSheet()
-    } else {
-      setSwitch(button, !next)
+      return
     }
+    // A refused write answers with the stored settings: repaint from those, then say why.
+    if (result?.settings) settings = { ...(settings ?? {}), ...result.settings }
+    renderSettingsSheet()
+    if (result?.message) notice(result.message, true)
   })
 }
 

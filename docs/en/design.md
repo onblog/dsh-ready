@@ -293,8 +293,11 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
   Electron documents `dock.hide()` as a no-op when another call happened within a second (otherwise a
   quick double-toggle leaves the Dock out of sync with the setting). With the Dock hidden macOS treats
   the process as an accessory app (`lsappinfo` reports `type="UIElement"`), so restoring the window
-  from the menu bar also calls `app.focus({ steal: true })`; with both the tray and the Dock off, the
-  app is still reachable by reopening it from Finder — the second instance brings the window back.
+  from the menu bar also calls `app.focus({ steal: true })`. **The tray and the Dock can never be off
+  together**: they are the only two ways back to the launcher, so the main process refuses the second
+  "off", the switch snaps back and the sheet says why. If a start-up read sees both `false` (settings
+  written by an older build or edited by hand), the tray is restored so no icon-less process is left
+  running.
 - npm registry: `auto` keeps the original two-registry speed test; `official` / `mirror` pin one and
   skip the test. Switching clears the registry cache and re-reads the latest version.
 - HTTP(S) proxy: written only into the npm / DSH child environment (`HTTP_PROXY`, `HTTPS_PROXY`,
@@ -378,9 +381,9 @@ macOS Apple Silicon (arm64), macOS Intel (x64) and Windows (x64).
 
 | Artifact | Command | Notes |
 | --- | --- | --- |
-| `dsh-ready-1.2.4-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
-| `dsh-ready-1.2.4-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
-| `dsh-ready-1.2.4-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
+| `dsh-ready-1.2.5-arm64.dmg` | `npm run dist:mac:arm64` | Apple Silicon |
+| `dsh-ready-1.2.5-x64.dmg` | `npm run dist:mac:x64` | Intel; cross-builds on Apple Silicon |
+| `dsh-ready-1.2.5-x64.exe` | `npm run dist:win` | NSIS; cross-builds on Apple Silicon |
 
 - Cross-builds download the matching Electron build; Intel/Windows packaging works on
   an Apple Silicon Mac without Wine.

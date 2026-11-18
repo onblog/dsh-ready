@@ -129,6 +129,18 @@ function applyDockIcon() {
   dockTimer.unref?.()
 }
 
+/**
+ * A settings file from an older build (or a hand edit) can ask for no tray and no Dock at
+ * once, which would leave a running app with no icon anywhere. Repair it on start.
+ */
+function ensureAccessIcon() {
+  if (!dockSupported()) return
+  const settings = readSettings()
+  if (settings.showTray || settings.showDock) return
+  writeSettings({ showTray: true })
+  push('托盘图标与 Dock 图标不能同时关闭，已恢复系统托盘图标')
+}
+
 /** Menu-bar Quit: straight to before-quit, which stops a managed DSH and exits. */
 function requestQuitFromTray() {
   quitConfirmed = true
@@ -774,8 +786,18 @@ ipcMain.handle('settings:set', async (_event, patch) => {
   }
 
   const before = readSettings()
+  const after = { ...before, ...next }
+  // Tray and Dock are the only ways back to a hidden launcher, so the second "off" is
+  // refused instead of leaving a running app with no icon anywhere.
+  if (dockSupported() && !after.showTray && !after.showDock) {
+    return {
+      ok: false,
+      blocked: 'accessIcons',
+      message: mainT(resolveLang(), 'msg.keepAccessIcon'),
+      settings: publicSettings(),
+    }
+  }
   writeSettings(next)
-  const after = readSettings()
 
   if (after.showTray !== before.showTray) syncTray()
   if (after.showDock !== before.showDock) applyDockIcon()
@@ -921,6 +943,7 @@ if (!gotLock) {
 
 app.whenReady().then(async () => {
   ensureDirs()
+  ensureAccessIcon()
   applyDockIcon()
   syncAppMenu()
   push('DSH 就位已启动')
