@@ -149,6 +149,9 @@ launcher window and of the DSH process:
   bar no longer renders it; DSH's own "重新连接中..." is the in-window signal.
 - The launcher never auto-opens this window. **Open DSH**, the tray menu, and a tray/Dock
   click or second launch while DSH runs with the app target selected create and focus it.
+  Once **Open DSH** hands over (app window and browser targets alike), the launcher hides
+  itself rather than closing: DSH keeps running, and the tray menu's "Show main window" or
+  the Dock icon brings the control panel back.
 
 ### `dsh:restart`
 

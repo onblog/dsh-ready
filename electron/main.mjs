@@ -88,6 +88,16 @@ function showMainWindow() {
   if (app.dock && !app.dock.isVisible() && !app.isActive()) app.focus({ steal: true })
 }
 
+/**
+ * "Open DSH" hands the screen to the DSH window, so the launcher steps aside instead of
+ * sitting behind it. Hiding is not closing: the launcher keeps running, and the tray or
+ * Dock icon (at least one always stays available) brings it back.
+ */
+function hideMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isVisible()) return
+  mainWindow.hide()
+}
+
 /** macOS only: the Dock icon is a setting, everything else has no concept of it. */
 function dockSupported() {
   return process.platform === 'darwin' && Boolean(app.dock)
@@ -164,6 +174,9 @@ async function accessUrl() {
 /**
  * Open the running DSH using the persisted "打开方式". The button and the tray menu both
  * land here, so the setting cannot drift between two entry points.
+ *
+ * Either target takes over the screen, so the launcher hides itself once the hand-off
+ * succeeds instead of lingering behind the DSH window or the browser.
  */
 async function openDsh() {
   const target = await accessUrl()
@@ -173,6 +186,7 @@ async function openDsh() {
     push('正在用浏览器打开 DSH')
     try {
       await shell.openExternal(target)
+      hideMainWindow()
       return { ok: true, target: 'browser' }
     } catch (error) {
       return { ok: false, message: error.message }
@@ -182,6 +196,7 @@ async function openDsh() {
   push('正在打开 DSH 窗口')
   try {
     if (!openAppWindow(target)) return { ok: false, message: mainT(resolveLang(), 'msg.notRunning') }
+    hideMainWindow()
     return { ok: true, target: 'app' }
   } catch (error) {
     return { ok: false, message: error.message }
