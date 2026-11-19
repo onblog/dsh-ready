@@ -15,6 +15,8 @@
  * prefix, because the bucket and database are the account-wide `common` ones.
  */
 
+import { scannerResponseFor } from './scanner-guard.js';
+
 const KEY_PREFIX = 'dsh-ready/';
 const MANIFEST_KEY = `${KEY_PREFIX}releases/latest.json`;
 const MANIFEST_TTL_MS = 60_000;
@@ -330,6 +332,11 @@ async function handleApi(request, env, url) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // Scanner gate (see src/scanner-guard.js): probes for wp-admin / .env / *.php
+    // and the two broken non-browser UAs are answered 4xx before the asset layer.
+    const scanBlocked = scannerResponseFor(request, url.pathname);
+    if (scanBlocked) return scanBlocked;
 
     if (url.pathname.startsWith('/api/')) {
       try {
