@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import worker from '../src/index.js';
-import { isScannerPath, isScannerUserAgent } from '../src/scanner-guard.js';
+import { isFlooding, isScannerPath, isScannerUserAgent } from '../src/scanner-guard.js';
 
 /** 2026-11-18 真实出现过的探测路径。 */
 const SCAN_PATHS = [
@@ -96,4 +96,40 @@ test('a normal request still falls through to the asset layer', async () => {
   const response = await worker.fetch(new Request('https://dsh.wordtk.com/download'), env);
   assert.equal(response.status, 200);
   assert.equal(asked, '/download');
+});
+
+test('an address that keeps probing is throttled after 20 blocked hits', () => {
+  const ip = '203.0.113.10';
+  const now = 1_800_000_000_000;
+  for (let i = 0; i < 20; i += 1) assert.equal(isFlooding(ip, now + i * 100), false, `hit ${i + 1}`);
+  assert.equal(isFlooding(ip, now + 2_100), true);
+  // 新的窗口重新计数
+  assert.equal(isFlooding(ip, now + 61_000), false);
+});
+
+test('the throttle is per address', () => {
+  const now = 1_800_000_000_000;
+  for (let i = 0; i < 25; i += 1) isFlooding('198.51.100.7', now);
+  assert.equal(isFlooding('198.51.100.8', now), false);
+});
+
+test('a flooded address gets 429 only on blocked paths', async () => {
+  const ip = '192.0.2.44';
+  const now = Date.now();
+  const scan = () =>
+    worker.fetch(
+      new Request('https://dsh.wordtk.com/.env', { headers: { 'User-Agent': 'curl/8.7.1', 'CF-Connecting-IP': ip } }),
+      {},
+    );
+  let last;
+  for (let i = 0; i < 21; i += 1) last = await scan();
+  assert.equal(last.status, 429);
+  assert.equal(last.headers.get('Retry-After'), '60');
+
+  // 同一个地址的普通页面不受影响：闸门直接返回 null，继续走资源层。
+  const normal = await worker.fetch(
+    new Request('https://dsh.wordtk.com/download', { headers: { 'CF-Connecting-IP': ip } }),
+    { ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } },
+  );
+  assert.equal(normal.status, 200);
 });
