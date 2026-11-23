@@ -324,6 +324,16 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
 - Launch reporting and the daily update check have separate switches: the first covers `/api/ping`,
   the second the once-a-day `/api/release`; the manual check always works. The
   `DSH_READY_NO_TELEMETRY=1` environment variable remains the hard kill switch.
+- The automatic check no longer runs only at launch: the 4s status poll asks whether a day has passed
+  since the last successful check (`updateCheckDue` is the single rule, shared by the scheduler and
+  `checkUpdate`), so an app that never quits still notices a release. `lastUpdateCheck` is written only
+  after a finished check: a failure does not spend the day's quota, and failed attempts back off an
+  hour instead of hitting the site on every poll.
+- When a new version is found the main process stores `pendingUpdate`: the tray menu keeps an
+  "Update vX available — download" entry, and the launcher is brought to the front with one update
+  dialog (once per version per run, not a daily nag). The dialog uses the existing `update-available`
+  event; if the page is still loading, the event waits for `did-finish-load` so the startup notice is
+  not dropped.
 - System permissions (**macOS only**; the row is not rendered on Windows / Linux): it copies the
   update row — "2/3 granted" under the label, a "Check" button on the right. The button stacks one
   more in-app report over the sheet: permission name and purpose on the left, one state chip in the

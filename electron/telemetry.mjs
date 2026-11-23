@@ -113,6 +113,17 @@ export async function reportLaunch() {
 }
 
 /**
+ * Whether an automatic check is due: the switch is on and a day has passed since the last
+ * successful check. The background scheduler and `checkUpdate` share this one rule, so a
+ * long-running app keeps checking instead of only checking once at launch.
+ */
+export function updateCheckDue(now = Date.now()) {
+  if (readSettings().autoUpdateCheck === false) return false
+  const last = Number(readSettings().lastUpdateCheck) || 0
+  return now - last >= DAY_MS
+}
+
+/**
  * Check the version published on the website.
  * Without force it is limited to once a day; force backs the manual check in the "About" panel.
  */
@@ -125,9 +136,8 @@ export async function checkUpdate({ force = false } = {}) {
   if (envTelemetryDisabled()) return { ok: false, disabled: true, reason: 'disabled' }
   if (!force && readSettings().autoUpdateCheck === false) return { ok: false, disabled: true }
 
-  const last = Number(readSettings().lastUpdateCheck) || 0
-  if (!force && Date.now() - last < DAY_MS) return { ok: false, skipped: true }
-  writeSettings({ lastUpdateCheck: Date.now() })
+  // The same due rule the scheduler reads, so "once a day" has exactly one definition.
+  if (!force && !updateCheckDue()) return { ok: false, skipped: true }
 
   let response
   try {
@@ -143,6 +153,10 @@ export async function checkUpdate({ force = false } = {}) {
     return { ok: false, reason: 'server', status: response.status }
   }
   if (!response.ok || !payload?.ok) return { ok: false, reason: 'server', status: response.status }
+
+  // Only a finished check spends the day's quota. Stamping before the request meant one
+  // offline launch silenced the next automatic check for 24 hours.
+  writeSettings({ lastUpdateCheck: Date.now() })
 
   const current = app.getVersion()
   const latest = String(payload.data.version || '')

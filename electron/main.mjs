@@ -31,12 +31,14 @@ import { buildUpgradePlan, applyUpgradePlan, removeProfileConfig, uninstallProfi
 import { ensureShellEnv } from './shellenv.mjs'
 import { compareVersions, parseVersion } from './semver.mjs'
 import { mainT } from './i18n.mjs'
-import { reportLaunch, checkUpdate, canOpenExternally, SITE_URL, GITHUB_URL, DEVELOPER } from './telemetry.mjs'
+import { reportLaunch, checkUpdate, updateCheckDue, canOpenExternally, SITE_URL, GITHUB_URL, DEVELOPER } from './telemetry.mjs'
 import { permissionsSupported, readPermissions, openPermissionSettings } from './permissions.mjs'
 import { openAppWindow, syncAppWindow, closeAppWindow } from './appwindow.mjs'
 
 const THEMES = ['light', 'dark']
 const LANGS = ['zh', 'en']
+/** A failed automatic check retries after this long; a successful one is gated at 24h. */
+const UPDATE_RETRY_MS = 60 * 60 * 1000
 
 /** Language: the shared rule (paths.resolveLanguage), fed with Electron's own locale. */
 function resolveLang() {
@@ -71,6 +73,11 @@ let quitting = false
 let readyToQuit = false
 let shuttingDown = false
 let quitConfirmed = false
+// Latest version found by the automatic check; the tray keeps it after the one dialog.
+let pendingUpdate = null
+let notifiedUpdateVersion = ''
+let nextUpdateAttemptAt = 0
+let updateCheckRunning = false
 
 function broadcast(event) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('dsh:event', event)
@@ -243,12 +250,23 @@ function trayMenu() {
   const live = currentState()
   const running = Boolean(live.openUrl || live.url)
   const lang = resolveLang()
-  return Menu.buildFromTemplate([
+  const template = [
     { label: mainT(lang, 'tray.openDsh'), enabled: running, click: () => { void openDsh() } },
     { label: mainT(lang, 'tray.showMain'), click: showMainWindow },
     { type: 'separator' },
-    { label: mainT(lang, 'tray.quit'), click: requestQuitFromTray },
-  ])
+  ]
+  // The menu is the one permanent place a background app can keep an update notice after
+  // the dialog was dismissed; the dialog itself is only shown once per version.
+  if (pendingUpdate) {
+    const target = pendingUpdate.url || SITE_URL
+    template.push({
+      label: mainT(lang, 'tray.updateAvailable', { version: pendingUpdate.latest }),
+      click: () => { void shell.openExternal(target).catch(() => null) },
+    })
+    template.push({ type: 'separator' })
+  }
+  template.push({ label: mainT(lang, 'tray.quit'), click: requestQuitFromTray })
+  return Menu.buildFromTemplate(template)
 }
 
 /** Rebuild the attached menu on Windows/Linux; macOS builds it fresh on right-click. */
@@ -276,6 +294,66 @@ function syncTray() {
   if (process.platform !== 'darwin') syncTrayMenu()
 }
 
+/**
+ * Surface the result of an update check. A new version earns exactly one dialog per run and
+ * a permanent tray entry; a check that says "up to date" clears both. The launcher is often
+ * hidden while DSH runs, so the notice also brings it forward — a dialog inside a hidden
+ * window would never be seen.
+ */
+function publishUpdate(result) {
+  if (!result?.ok) return
+  if (!result.hasUpdate) {
+    if (pendingUpdate) {
+      pendingUpdate = null
+      syncTrayMenu()
+    }
+    return
+  }
+
+  if (pendingUpdate?.latest !== result.latest) {
+    pendingUpdate = { latest: result.latest, url: result.url }
+    syncTrayMenu()
+  }
+  if (notifiedUpdateVersion === result.latest) return
+  notifiedUpdateVersion = result.latest
+  if (quitting || shuttingDown) return
+
+  push(`发现新版本：${result.latest}（当前 ${result.current}）`)
+  const send = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    broadcast({ type: 'update-available', ...result })
+  }
+  // The startup check can finish while the launcher page is still loading; an event sent
+  // then is dropped before the renderer subscribes. Wait for the document if needed.
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.isLoadingMainFrame()) {
+    mainWindow.webContents.once('did-finish-load', send)
+  } else {
+    send()
+  }
+  showMainWindow()
+}
+
+/**
+ * The automatic check. Called from the 4s poll as well as at startup, so an app that never
+ * quits still notices a release: the 24h gate lives in telemetry (`updateCheckDue`), and a
+ * failed attempt retries an hour later instead of burning the day or hammering the site.
+ */
+async function autoUpdateCheck() {
+  if (task || updateCheckRunning || quitting || shuttingDown) return
+  const now = Date.now()
+  if (now < nextUpdateAttemptAt) return
+  if (!updateCheckDue(now)) return
+  updateCheckRunning = true
+  try {
+    const result = await checkUpdate()
+    if (!result?.ok) nextUpdateAttemptAt = Date.now() + UPDATE_RETRY_MS
+    publishUpdate(result)
+  } catch {
+    nextUpdateAttemptAt = Date.now() + UPDATE_RETRY_MS
+  } finally {
+    updateCheckRunning = false
+  }
+}
 
 /**
  * The application menu follows the app's own language setting, not the OS locale, so the
@@ -961,12 +1039,11 @@ app.whenReady().then(async () => {
   await emitState()
   // Launch reporting and the daily update check never block the UI: failures stay silent and do not disturb the user.
   void reportLaunch()
-  void checkUpdate()
-    .then((result) => {
-      if (result?.ok && result.hasUpdate) broadcast({ type: 'update-available', ...result })
-    })
-    .catch(() => null)
+  void autoUpdateCheck()
   setInterval(async () => {
+    // The same poll that watches for an external DSH also carries the daily update gate:
+    // a long-running app must not stop hearing about new releases.
+    void autoUpdateCheck()
     if (task) return
     try {
       const wasRunning = currentState().running
