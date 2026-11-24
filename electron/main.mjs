@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, nativeTheme, shell, Tray } from 'electron'
 import { join } from 'node:path'
+import { existsSync } from 'node:fs'
 import {
   readSettings,
   writeSettings,
@@ -32,6 +33,7 @@ import { ensureShellEnv } from './shellenv.mjs'
 import { compareVersions, parseVersion } from './semver.mjs'
 import { mainT } from './i18n.mjs'
 import { reportLaunch, checkUpdate, updateCheckDue, canOpenExternally, SITE_URL, GITHUB_URL, DEVELOPER } from './telemetry.mjs'
+import { downloadInstaller } from './download.mjs'
 import { permissionsSupported, readPermissions, openPermissionSettings } from './permissions.mjs'
 import { openAppWindow, syncAppWindow, closeAppWindow } from './appwindow.mjs'
 
@@ -73,9 +75,12 @@ let quitting = false
 let readyToQuit = false
 let shuttingDown = false
 let quitConfirmed = false
-// Latest version found by the automatic check; the tray keeps it after the one dialog.
+// The installer download for the version found by the automatic check; the tray keeps it
+// after the completion dialog was dismissed.
 let pendingUpdate = null
-let notifiedUpdateVersion = ''
+let updateDownloadController = null
+let updateDownloadRunning = false
+let lastUpdateProgressAt = 0
 let nextUpdateAttemptAt = 0
 let updateCheckRunning = false
 
@@ -255,13 +260,24 @@ function trayMenu() {
     { label: mainT(lang, 'tray.showMain'), click: showMainWindow },
     { type: 'separator' },
   ]
-  // The menu is the one permanent place a background app can keep an update notice after
-  // the dialog was dismissed; the dialog itself is only shown once per version.
+  // The menu is the one permanent place a background app can keep an update after the
+  // completion dialog was dismissed; clicking it starts the download or reopens the dialog.
   if (pendingUpdate) {
-    const target = pendingUpdate.url || SITE_URL
+    const update = pendingUpdate
+    const ready = update.status === 'ready' && Boolean(update.path) && existsSync(update.path)
     template.push({
-      label: mainT(lang, 'tray.updateAvailable', { version: pendingUpdate.latest }),
-      click: () => { void shell.openExternal(target).catch(() => null) },
+      label: mainT(lang, ready ? 'tray.installUpdate' : 'tray.updateAvailable', { version: update.latest }),
+      click: () => {
+        showMainWindow()
+        if (pendingUpdate?.status === 'ready' && pendingUpdate.path && existsSync(pendingUpdate.path)) {
+          broadcastUpdateReady()
+        } else {
+          void startUpdateDownload()
+          // Reopen the progress panel even after "background"/cancel; the renderer had
+          // dismissed it, and this click is an explicit request to see it again.
+          broadcast({ type: 'update-progress-show', latest: update.latest })
+        }
+      },
     })
     template.push({ type: 'separator' })
   }
@@ -294,43 +310,156 @@ function syncTray() {
   if (process.platform !== 'darwin') syncTrayMenu()
 }
 
+/** The startup check can finish while the launcher page is still loading. */
+function broadcastWhenReady(event) {
+  const send = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    broadcast(event)
+  }
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.isLoadingMainFrame()) {
+    mainWindow.webContents.once('did-finish-load', send)
+  } else {
+    send()
+  }
+}
+
+/** Ask the renderer to show the completion dialog (also used by the tray after "later"). */
+function broadcastUpdateReady() {
+  const update = pendingUpdate
+  if (!update || update.status !== 'ready' || !update.path) return
+  broadcastWhenReady({
+    type: 'update-downloaded',
+    latest: update.latest,
+    name: update.file?.name ?? '',
+    size: update.size || update.file?.size || 0,
+  })
+}
+
+function cancelUpdateDownload() {
+  if (updateDownloadController) {
+    updateDownloadController.abort()
+    updateDownloadController = null
+  }
+  if (pendingUpdate?.status === 'downloading') pendingUpdate.status = 'idle'
+}
+
 /**
- * Surface the result of an update check. A new version earns exactly one dialog per run and
- * a permanent tray entry; a check that says "up to date" clears both. The launcher is often
- * hidden while DSH runs, so the notice also brings it forward — a dialog inside a hidden
- * window would never be seen.
+ * Fetch the installer in parallel ranges into the Downloads folder. The launcher is often
+ * hidden while DSH runs: progress is broadcast for the window, the download keeps going in
+ * the background, and the completion dialog is what brings the window forward.
+ */
+async function startUpdateDownload() {
+  const update = pendingUpdate
+  if (!update?.file || quitting || shuttingDown) return
+  if (updateDownloadRunning) return
+  if (update.status === 'downloading') return
+  if (update.status === 'ready') {
+    if (update.path && existsSync(update.path)) return
+    // The file was removed after "later": download it again instead of offering a dead path.
+    update.status = 'idle'
+    update.path = null
+    syncTrayMenu()
+  }
+  updateDownloadRunning = true
+  update.status = 'downloading'
+  update.received = 0
+  update.error = ''
+  lastUpdateProgressAt = 0
+  syncTrayMenu()
+  broadcast({ type: 'update-progress', latest: update.latest, received: 0, total: update.file.size, percent: 0 })
+  const controller = new AbortController()
+  updateDownloadController = controller
+  const onProgress = (received, total) => {
+    update.received = received
+    const now = Date.now()
+    if (now - lastUpdateProgressAt < 200 && received < total) return
+    lastUpdateProgressAt = now
+    broadcast({
+      type: 'update-progress',
+      latest: update.latest,
+      received,
+      total,
+      percent: total ? Math.min(99, Math.floor((received / total) * 100)) : 0,
+    })
+  }
+  try {
+    const result = await downloadInstaller({
+      ...update.file,
+      signal: controller.signal,
+      onProgress,
+    })
+    if (pendingUpdate !== update) return
+    update.path = result.path
+    update.size = result.bytes
+    update.status = 'ready'
+    syncTrayMenu()
+    broadcastUpdateReady()
+    showMainWindow()
+  } catch (error) {
+    if (pendingUpdate !== update) return
+    if (controller.signal.aborted) {
+      update.status = 'idle'
+      return
+    }
+    update.status = 'failed'
+    update.error = error.message
+    push(`更新下载失败：${error.message}`)
+    broadcast({ type: 'update-download-failed', latest: update.latest, message: error.message })
+    syncTrayMenu()
+  } finally {
+    if (updateDownloadController === controller) updateDownloadController = null
+    updateDownloadRunning = false
+  }
+}
+
+/**
+ * Surface the result of an update check. A new version is downloaded immediately; the tray
+ * carries it while the download runs, and the completion dialog appears once the verified
+ * installer sits in Downloads. A platform without a published installer gets an in-app
+ * notice — nothing opens a browser.
  */
 function publishUpdate(result) {
   if (!result?.ok) return
   if (!result.hasUpdate) {
+    cancelUpdateDownload()
     if (pendingUpdate) {
       pendingUpdate = null
       syncTrayMenu()
     }
     return
   }
+  if (quitting || shuttingDown) return
+  if (!result.file) {
+    push(`新版本 v${result.latest}：当前平台没有可直接下载的安装包`)
+    broadcastWhenReady({ type: 'update-unsupported', latest: result.latest })
+    return
+  }
 
   if (pendingUpdate?.latest !== result.latest) {
-    pendingUpdate = { latest: result.latest, url: result.url }
+    cancelUpdateDownload()
+    pendingUpdate = {
+      latest: result.latest,
+      current: result.current,
+      file: result.file,
+      status: 'idle',
+      path: null,
+      size: result.file.size,
+      received: 0,
+      error: '',
+    }
     syncTrayMenu()
+    push(`发现新版本：${result.latest}（当前 ${result.current}）`)
+    broadcastWhenReady({
+      type: 'update-available',
+      latest: result.latest,
+      current: result.current,
+      size: result.file.size,
+    })
+  } else if (pendingUpdate.status !== 'ready') {
+    // A republished manifest can update the size/digest; a finished file stays as is.
+    pendingUpdate.file = result.file
   }
-  if (notifiedUpdateVersion === result.latest) return
-  notifiedUpdateVersion = result.latest
-  if (quitting || shuttingDown) return
-
-  push(`发现新版本：${result.latest}（当前 ${result.current}）`)
-  const send = () => {
-    if (!mainWindow || mainWindow.isDestroyed()) return
-    broadcast({ type: 'update-available', ...result })
-  }
-  // The startup check can finish while the launcher page is still loading; an event sent
-  // then is dropped before the renderer subscribes. Wait for the document if needed.
-  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.isLoadingMainFrame()) {
-    mainWindow.webContents.once('did-finish-load', send)
-  } else {
-    send()
-  }
-  showMainWindow()
+  void startUpdateDownload()
 }
 
 /**
@@ -961,8 +1090,44 @@ ipcMain.handle('app:check-update', async () => {
       .filter(Boolean)
       .join(' ')
     push(`检查更新失败：${detail || '未知原因'}`)
+    return result
+  }
+  if (result.hasUpdate) {
+    publishUpdate(result)
+    // A manual check is also the way back to the dialog after "later".
+    if (pendingUpdate?.status === 'ready') {
+      showMainWindow()
+      broadcastUpdateReady()
+    } else if (pendingUpdate?.status === 'downloading') {
+      broadcast({ type: 'update-progress-show', latest: pendingUpdate.latest })
+    }
   }
   return result
+})
+
+ipcMain.handle('update:cancel', () => {
+  const latest = pendingUpdate?.latest ?? ''
+  cancelUpdateDownload()
+  broadcast({ type: 'update-cancelled', latest })
+  return { ok: true }
+})
+
+/** Open the downloaded installer with the OS (dmg → mounted, exe → NSIS). */
+ipcMain.handle('update:install', async () => {
+  const update = pendingUpdate
+  if (!update?.path || update.status !== 'ready') {
+    return { ok: false, message: mainT(resolveLang(), 'msg.updateMissing') }
+  }
+  const error = await shell.openPath(update.path).catch((err) => err.message)
+  if (error) return { ok: false, message: error }
+  push(`已打开更新安装包：${update.path}`)
+  return { ok: true }
+})
+
+ipcMain.handle('update:show-file', () => {
+  if (!pendingUpdate?.path) return { ok: false }
+  shell.showItemInFolder(pendingUpdate.path)
+  return { ok: true }
 })
 
 ipcMain.handle('app:open-external', async (_event, url) => {
@@ -1072,6 +1237,7 @@ app.on('before-quit', (event) => {
   if (shuttingDown) return
   shuttingDown = true
   quitting = true
+  cancelUpdateDownload()
   void (async () => {
     if (currentState().running) {
       push('退出前停止 DSH')

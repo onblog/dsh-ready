@@ -463,6 +463,30 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
   font-size: 12px;
 }
 
+/* Download progress: one thin bar, filled with the accent, plus a tabular byte count. */
+.progress {
+  height: 6px;
+  margin: 10px 0 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 160ms ease;
+}
+
+.progress-stats {
+  margin: 0;
+  color: var(--ink-3);
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
 .modal-actions .btn.danger {
   border-color: var(--danger);
   color: var(--danger);

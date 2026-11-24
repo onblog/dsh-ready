@@ -340,11 +340,16 @@ loaded. Videos are VP9 with alpha (640×360) cropped into an 86×86 area.
   `checkUpdate`), so an app that never quits still notices a release. `lastUpdateCheck` is written only
   after a finished check: a failure does not spend the day's quota, and failed attempts back off an
   hour instead of hitting the site on every poll.
-- When a new version is found the main process stores `pendingUpdate`: the tray menu keeps an
-  "Update vX available — download" entry, and the launcher is brought to the front with one update
-  dialog (once per version per run, not a daily nag). The dialog uses the existing `update-available`
-  event; if the page is still loading, the event waits for `did-finish-load` so the startup notice is
-  not dropped.
+- A new version is **never** sent to the browser: the main process picks this machine's installer
+  from the manifest's `size` / `sha256`, downloads it into the system Downloads folder with four
+  parallel Range requests, writes `<name>.part`, and only renames it after both the length and the
+  sha256 verify (`DSH_READY_DOWNLOAD_DIR` exists for tests only). The launcher may stay hidden while
+  this runs; `update-progress` drives the status line, and only completion brings the window forward
+  with the install / show in folder / later dialog. The tray says "Update vX available — download"
+  while downloading and "Install update vX" once ready, and reopens the dialog on click. "Install now"
+  uses `shell.openPath` (dmg → mounted by the OS, exe → NSIS), "Show in folder" uses
+  `shell.showItemInFolder`, and "Later" only closes the dialog. A platform with no published installer
+  (Linux) gets an inline notice, never a browser.
 - System permissions (**macOS only**; the row is not rendered on Windows / Linux): it copies the
   update row — "2/3 granted" under the label, a "Check" button on the right. The button stacks one
   more in-app report over the sheet: permission name and purpose on the left, one state chip in the

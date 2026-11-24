@@ -149,7 +149,9 @@ npm run release              # upload installers to R2 + rewrite latest.json
 
 ## Privacy
 
-- The desktop app sends **nothing**. No telemetry, no update pings, no accounts.
+- The desktop app has **no accounts, no telemetry SDK and no third-party calls**. Its only
+  outbound traffic is the anonymous launch signal described below and the update check /
+  installer download from this project's own site; both can be turned off in settings.
 - The website itself collects **nothing** — no page-view counter, no cookies, no
   third-party scripts. The only data on this project's side is an anonymous launch
   signal sent by the desktop app: a random device id, the UTC date, the app version

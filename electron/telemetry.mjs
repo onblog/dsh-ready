@@ -161,7 +161,29 @@ export async function checkUpdate({ force = false } = {}) {
   const current = app.getVersion()
   const latest = String(payload.data.version || '')
   const hasUpdate = Boolean(latest) && compareVersions(latest, current) > 0
-  return { ok: true, current, latest, hasUpdate, url: SITE_URL }
+  return { ok: true, current, latest, hasUpdate, file: hasUpdate ? releaseFileFor(payload.data.files, latest) : null }
+}
+
+/**
+ * The installer for this machine, from the manifest's `files` map. Windows is published as
+ * x64 only, so even Windows on ARM takes that build (it runs under emulation); Linux has no
+ * published installer and gets `null`.
+ */
+function releaseFileFor(files, version) {
+  let arch = null
+  if (process.platform === 'darwin') arch = process.arch === 'arm64' ? 'arm64' : 'x64'
+  else if (process.platform === 'win32') arch = 'win-x64'
+  const entry = arch ? files?.[arch] : null
+  const size = Number(entry?.size) || 0
+  const sha256 = String(entry?.sha256 || '').toLowerCase()
+  if (!entry?.name || size <= 0 || !sha256) return null
+  try {
+    const fallback = `/api/download?arch=${encodeURIComponent(arch)}&v=${encodeURIComponent(version)}`
+    const url = new URL(entry.url || fallback, SITE_URL).toString()
+    return { arch, name: String(entry.name), size, sha256, url }
+  } catch {
+    return null
+  }
 }
 
 /** External link allowlist: project links plus the two localized official Node.js download pages. */

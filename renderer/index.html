@@ -21,6 +21,33 @@
       </div>
     </div>
   </div>
+  <div id="download" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="downloadTitle">
+      <h2 id="downloadTitle" class="modal-title"></h2>
+      <div class="modal-body">
+        <p id="downloadVersion"></p>
+        <div id="downloadProgress" class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="downloadFill" class="progress-fill"></div>
+        </div>
+        <p id="downloadStats" class="progress-stats"></p>
+      </div>
+      <div class="modal-actions">
+        <button id="downloadCancel" class="btn" type="button"></button>
+        <button id="downloadBackground" class="btn primary" type="button"></button>
+      </div>
+    </div>
+  </div>
+  <div id="update" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="updateTitle">
+      <h2 id="updateTitle" class="modal-title"></h2>
+      <div id="updateBody" class="modal-body"></div>
+      <div class="modal-actions">
+        <button id="updateLater" class="btn" type="button"></button>
+        <button id="updateFolder" class="btn" type="button"></button>
+        <button id="updateInstall" class="btn primary" type="button"></button>
+      </div>
+    </div>
+  </div>
   <div id="settings" class="sheet" hidden>
     <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" tabindex="-1">
       <button id="settingsClose" class="sheet-close" type="button" data-i18n-aria="sheet.close" aria-label="关闭">

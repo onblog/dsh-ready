@@ -42,6 +42,20 @@ const els = {
   modalBody: $('modalBody'),
   modalConfirm: $('modalConfirm'),
   modalCancel: $('modalCancel'),
+  download: $('download'),
+  downloadTitle: $('downloadTitle'),
+  downloadVersion: $('downloadVersion'),
+  downloadProgress: $('downloadProgress'),
+  downloadFill: $('downloadFill'),
+  downloadStats: $('downloadStats'),
+  downloadCancel: $('downloadCancel'),
+  downloadBackground: $('downloadBackground'),
+  update: $('update'),
+  updateTitle: $('updateTitle'),
+  updateBody: $('updateBody'),
+  updateInstall: $('updateInstall'),
+  updateFolder: $('updateFolder'),
+  updateLater: $('updateLater'),
   nodeInfo: $('nodeInfo'),
   runtimeInfo: $('runtimeInfo'),
   settings: $('settings'),
@@ -339,7 +353,14 @@ function defaultHint(current) {
   }
 }
 
+let downloadStatus = ''
+
 function showHint() {
+  if (downloadStatus) {
+    els.hint.textContent = downloadStatus
+    els.hint.classList.remove('err')
+    return
+  }
   if (noticeText) {
     renderInlineLinks(els.hint, noticeText)
     els.hint.classList.toggle('err', noticeIsError)
@@ -347,6 +368,12 @@ function showHint() {
   }
   els.hint.textContent = defaultHint(state)
   els.hint.classList.remove('err')
+}
+
+/** Persistent line while an installer is downloading; it outranks a transient notice. */
+function setDownloadStatus(text) {
+  downloadStatus = text
+  showHint()
 }
 
 function notice(text, isError = false) {
@@ -754,6 +781,17 @@ function showModal({ title, lines = [], confirmText, cancelText, danger = false 
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return
+  // The update notice is the topmost layer; dismiss it before the sheets below.
+  if (!els.update.hidden) {
+    event.preventDefault()
+    closeUpdateDialog()
+    return
+  }
+  if (!els.download.hidden) {
+    event.preventDefault()
+    hideDownloadPanel({ dismissed: true })
+    return
+  }
   // The report sits on top of the sheet, so it is the first thing Escape dismisses.
   if (!els.perms.hidden) {
     event.preventDefault()
@@ -1155,7 +1193,6 @@ async function checkUpdates() {
     if (result.hasUpdate) {
       els.updateBtn.textContent = t('update.found')
       renderUpdateNote('found', result.latest)
-      promptUpdate(result)
     } else {
       els.updateBtn.textContent = t('update.latest')
       renderUpdateNote('latest', result.latest || appInfo?.version)
@@ -1169,18 +1206,86 @@ async function checkUpdates() {
   }
 }
 
-async function promptUpdate(info) {
-  closeSettings()
-  const confirmed = await showModal({
-    title: t('update.title'),
-    lines: [
-      t('update.detail', { current: info.current ?? appInfo?.version ?? '—', latest: info.latest }),
-    ],
-    confirmText: t('update.go'),
-    cancelText: t('update.later'),
-  })
-  if (confirmed) await openExternal(info.url || appInfo?.site)
+function formatSize(bytes) {
+  const value = Number(bytes) || 0
+  if (!value) return '0 B'
+  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`
+  return `${Math.max(1, Math.round(value / 1024))} KB`
 }
+
+let downloadDismissed = false
+let lastDownloadProgress = null
+
+/** Progress panel: the bar plus a tabular byte count; the download runs in the main process. */
+function setDownloadProgress(info) {
+  lastDownloadProgress = info
+  const percent = Math.max(0, Math.min(100, Number(info.percent) || 0))
+  els.downloadTitle.textContent = t('update.downloadingTitle')
+  els.downloadVersion.textContent = t('update.downloadingBody', { version: info.latest || '' })
+  els.downloadFill.style.width = `${percent}%`
+  els.downloadProgress.setAttribute('aria-valuenow', String(percent))
+  els.downloadStats.textContent = t('update.downloadingStats', {
+    percent: String(percent),
+    done: formatSize(info.received),
+    total: formatSize(info.total),
+  })
+  els.downloadCancel.textContent = t('update.cancelDownload')
+  els.downloadBackground.textContent = t('update.background')
+  if (!downloadDismissed) els.download.hidden = false
+}
+
+function hideDownloadPanel({ dismissed = false } = {}) {
+  els.download.hidden = true
+  downloadDismissed = dismissed
+}
+
+els.downloadBackground.addEventListener('click', () => hideDownloadPanel({ dismissed: true }))
+els.downloadCancel.addEventListener('click', async () => {
+  hideDownloadPanel({ dismissed: true })
+  downloadStatus = ''
+  showHint()
+  const result = await window.api.cancelUpdateDownload().catch(() => null)
+  if (result?.ok) notice(t('update.cancelled'))
+})
+els.download.addEventListener('click', (event) => {
+  if (event.target === els.download) hideDownloadPanel({ dismissed: true })
+})
+
+/** Completion dialog: install now, reveal the file, or deal with it later. */
+function closeUpdateDialog() {
+  els.update.hidden = true
+}
+
+function openUpdateDialog(info) {
+  els.updateTitle.textContent = t('update.readyTitle')
+  els.updateBody.textContent = ''
+  els.updateBody.append(el('p', null, t('update.readyBody', { version: info.latest, size: formatSize(info.size) })))
+  els.updateBody.append(el('p', null, t('update.readyHint')))
+  els.updateInstall.textContent = t('update.installNow')
+  els.updateFolder.textContent = t('update.openFolder')
+  els.updateLater.textContent = t('update.later')
+  els.update.hidden = false
+  els.updateInstall.focus()
+}
+
+els.updateInstall.addEventListener('click', async () => {
+  els.updateInstall.disabled = true
+  const result = await window.api.installUpdate().catch(() => null)
+  els.updateInstall.disabled = false
+  closeUpdateDialog()
+  if (result?.ok) notice(t('update.installStarted'))
+  else notice(result?.message || t('update.installFailed'), true)
+})
+
+els.updateFolder.addEventListener('click', async () => {
+  await window.api.showUpdateFile().catch(() => null)
+  closeUpdateDialog()
+})
+
+els.updateLater.addEventListener('click', closeUpdateDialog)
+els.update.addEventListener('click', (event) => {
+  if (event.target === els.update) closeUpdateDialog()
+})
 
 /* ---------- System permissions (macOS only) ---------- */
 
@@ -1507,7 +1612,38 @@ els.autoLaunch.addEventListener('click', async () => {
 window.api.onEvent((payload) => {
   if (payload.type === 'log') appendLine(payload.line)
   else if (payload.type === 'state') render(payload.state)
-  else if (payload.type === 'update-available') promptUpdate(payload)
+  else if (payload.type === 'update-available') {
+    closeUpdateDialog()
+    downloadDismissed = false
+    setDownloadStatus(t('update.downloading', { version: payload.latest, percent: 0 }))
+    setDownloadProgress({ latest: payload.latest, percent: 0, received: 0, total: payload.size ?? 0 })
+  } else if (payload.type === 'update-progress') {
+    setDownloadStatus(t('update.downloading', { version: payload.latest, percent: payload.percent ?? 0 }))
+    setDownloadProgress(payload)
+  } else if (payload.type === 'update-progress-show') {
+    downloadDismissed = false
+    if (lastDownloadProgress?.latest === payload.latest) setDownloadProgress(lastDownloadProgress)
+    else setDownloadProgress({ latest: payload.latest, percent: 0, received: 0, total: 0 })
+  } else if (payload.type === 'update-downloaded') {
+    hideDownloadPanel({ dismissed: true })
+    downloadStatus = ''
+    lastDownloadProgress = null
+    showHint()
+    openUpdateDialog(payload)
+  } else if (payload.type === 'update-download-failed') {
+    hideDownloadPanel({ dismissed: true })
+    downloadStatus = ''
+    lastDownloadProgress = null
+    showHint()
+    notice(t('update.downloadFailed'), true)
+  } else if (payload.type === 'update-cancelled') {
+    hideDownloadPanel({ dismissed: true })
+    downloadStatus = ''
+    lastDownloadProgress = null
+    showHint()
+  } else if (payload.type === 'update-unsupported') {
+    notice(t('update.unsupported'), true)
+  }
 })
 
 /** Quit immediately: no confirmation. The main process stops a managed DSH on the way out. */
