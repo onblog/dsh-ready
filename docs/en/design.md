@@ -145,6 +145,17 @@ launcher window and of the DSH process:
 - Geometry is remembered in `app-window.json`, clamped to a display that still exists.
 - External links and `window.open` go to the system browser; navigation stays on the
   local DSH origin. Downloads save to the Downloads folder without a native save dialog.
+- The app window has find: `Cmd+F` (`Ctrl+F` on Windows / Linux) opens a bar in the top-right,
+  `Enter` / `Shift+Enter` and the arrow buttons step through matches, `Esc` or the close button
+  dismisses it; the count updates as you type and the bar is bilingual. The bar is **not** DOM
+  injected into the DSH page: Chromium's `findInPage()` moves focus to the matched text, which
+  would immediately blur a same-page input, and restoring focus clears the find session (so
+  "next" would always stay at 1). It is a 340×40 transparent `WebContentsView`
+  (`setBorderRadius(10)` for the rounded corners) with its own webContents; `findInPage()` only
+  touches the DSH page, so the caret stays in the bar, stepping works, and DSH's CSP and global
+  key handling cannot interfere. Only the latest request's results are forwarded (by
+  `requestId`); the bar is repositioned on resize/fullscreen and closes on window hide, full
+  navigation, or a DSH restart.
 - The window title still carries "· 已停止" for Mission Control, but the hidden title
   bar no longer renders it; DSH's own "重新连接中..." is the in-window signal.
 - The launcher never auto-opens this window. **Open DSH**, the tray menu, and a tray/Dock

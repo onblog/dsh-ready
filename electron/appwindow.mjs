@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, screen, shell, WebContentsView } from 'electron'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { USER_DATA, readSettings, resolveLanguage } from './paths.mjs'
@@ -51,12 +51,55 @@ const MAC_TITLEBAR_CSS = `
   [role="listbox"], [role="listbox"] * { -webkit-app-region: no-drag; }
 `
 
+const FIND_WIDTH = 340
+const FIND_HEIGHT = 40
+const FIND_TOP = 10
+const FIND_RIGHT = 12
+
 let appWindow = null
 let baseTitle = 'DSH'
 let stopped = false
 let lastLoadedUrl = null
 let downloadsWired = false
+let findView = null
+let findVisible = false
+let findViewReady = false
+let findRequestId = 0
 const closingWindows = new WeakSet()
+
+/** The find bar's own webContents is the only allowed caller of these handlers. */
+function isFindSender(event) {
+  return Boolean(findView && !findView.webContents.isDestroyed() && event.sender === findView.webContents)
+}
+
+/**
+ * Find-bar IPC. The bar is a separate WebContentsView, so `findInPage` focusing the matched
+ * text cannot blur its input or reset the find session. Only the latest request's results
+ * are forwarded; typing quickly would otherwise let an older count overwrite a newer one.
+ */
+ipcMain.handle('findbar:find', (event, payload) => {
+  if (!isFindSender(event)) return 0
+  const win = appWindow
+  if (!win || win.isDestroyed()) return 0
+  const text = String(payload?.text ?? '').slice(0, 512)
+  if (!text) {
+    win.webContents.stopFindInPage('clearSelection')
+    findRequestId = 0
+    return 0
+  }
+  findRequestId = win.webContents.findInPage(text, {
+    forward: payload?.forward !== false,
+    findNext: Boolean(payload?.findNext),
+    matchCase: false,
+  })
+  return findRequestId
+})
+
+ipcMain.handle('findbar:close', (event) => {
+  if (!isFindSender(event)) return false
+  hideFindBar(appWindow)
+  return true
+})
 
 function readWindowState() {
   try {
@@ -237,6 +280,130 @@ function wireTitleBar(win) {
   win.on('leave-full-screen', () => applyInset(true))
 }
 
+/** Create the bar as a transparent child view of the app window, hidden until Cmd/Ctrl+F. */
+function ensureFindView(win) {
+  if (findView && !findView.webContents.isDestroyed()) return findView
+  findViewReady = false
+  findView = new WebContentsView({
+    webPreferences: {
+      preload: join(import.meta.dirname, 'findbar-preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  })
+  findView.setBackgroundColor('#00000000')
+  findView.setBorderRadius(10)
+  findView.setVisible(false)
+  win.contentView.addChildView(findView)
+  findView.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  findView.webContents.on('did-finish-load', () => { findViewReady = true })
+  findView.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return
+    if (input.key === 'Escape') {
+      event.preventDefault()
+      hideFindBar(win)
+      return
+    }
+    const command = process.platform === 'darwin' ? input.meta : input.control
+    if (!command || input.alt || input.shift) return
+    if (String(input.key).toLowerCase() !== 'f') return
+    event.preventDefault()
+    findView.webContents.send('findbar:focus')
+  })
+  void findView.webContents
+    .loadFile(join(import.meta.dirname, '..', 'renderer', 'findbar.html'))
+    .catch((error) => push(`查找条加载失败：${error.message}`))
+  return findView
+}
+
+/** Keep the bar pinned to the window's top-right corner. */
+function positionFindView(win) {
+  if (!findView || findView.webContents.isDestroyed() || win.isDestroyed()) return
+  const [width] = win.getContentSize()
+  findView.setBounds({
+    x: Math.max(0, width - FIND_WIDTH - FIND_RIGHT),
+    y: FIND_TOP,
+    width: FIND_WIDTH,
+    height: FIND_HEIGHT,
+  })
+}
+
+function showFindBar(win) {
+  if (!win || win.isDestroyed()) return
+  const view = ensureFindView(win)
+  positionFindView(win)
+  view.setVisible(true)
+  findVisible = true
+  const reveal = () => {
+    if (!findVisible || !findView || findView.webContents.isDestroyed()) return
+    findView.webContents.send('findbar:show', { lang: resolveLanguage(app.getLocale()) })
+    findView.webContents.focus()
+  }
+  if (findViewReady) reveal()
+  else view.webContents.once('did-finish-load', reveal)
+}
+
+function hideFindBar(win, { restoreFocus = true } = {}) {
+  if (findView && !findView.webContents.isDestroyed()) findView.setVisible(false)
+  findVisible = false
+  findRequestId = 0
+  if (!win || win.isDestroyed()) return
+  win.webContents.stopFindInPage('clearSelection')
+  if (restoreFocus && win.isVisible()) win.webContents.focus()
+}
+
+/**
+ * Cmd/Ctrl+F opens the bar; Escape closes it. The page keeps its focus and find session while
+ * the bar's input is focused, which is the whole reason the bar is a separate view.
+ */
+function wireFindBar(win) {
+  const { webContents } = win
+  webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return
+    if (input.key === 'Escape' && findVisible) {
+      event.preventDefault()
+      hideFindBar(win)
+      return
+    }
+    const command = process.platform === 'darwin' ? input.meta : input.control
+    if (!command || input.alt || input.shift) return
+    if (String(input.key).toLowerCase() !== 'f') return
+    event.preventDefault()
+    showFindBar(win)
+  })
+
+  webContents.on('found-in-page', (_event, result) => {
+    if (result.requestId !== findRequestId) return
+    if (!findView || findView.webContents.isDestroyed()) return
+    findView.webContents.send('findbar:result', {
+      matches: result.matches ?? 0,
+      active: result.activeMatchOrdinal ?? 0,
+      final: Boolean(result.finalUpdate),
+    })
+  })
+
+  // A full reload (DSH restarted with a new token) invalidates the old highlights.
+  webContents.on('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => {
+    if (isMainFrame && !isInPlace && findVisible) hideFindBar(win, { restoreFocus: false })
+  })
+
+  win.on('resize', () => { if (findVisible) positionFindView(win) })
+  win.on('enter-full-screen', () => { if (findVisible) setTimeout(() => positionFindView(win), 60) })
+  win.on('leave-full-screen', () => { if (findVisible) setTimeout(() => positionFindView(win), 60) })
+  win.on('hide', () => { if (findVisible) hideFindBar(win, { restoreFocus: false }) })
+  win.on('close', () => { if (findVisible) hideFindBar(win, { restoreFocus: false }) })
+  win.on('closed', () => {
+    if (findView) {
+      if (!findView.webContents.isDestroyed()) findView.webContents.close()
+      findView = null
+    }
+    findVisible = false
+    findViewReady = false
+    findRequestId = 0
+  })
+}
+
 /** Open the app window, or bring the one that is already open forward. */
 export function openAppWindow(url) {
   if (!url) return false
@@ -288,6 +455,7 @@ export function openAppWindow(url) {
   wireDownloads(win.webContents.session)
   wireNavigation(win)
   wireTitleBar(win)
+  wireFindBar(win)
 
   win.on('page-title-updated', (event, title) => {
     event.preventDefault()

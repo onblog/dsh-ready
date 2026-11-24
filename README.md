@@ -43,8 +43,8 @@ cleaning up stray processes.
 | Uninstall | Stops, removes plugins, clears the profile, removes DSH — keeps `~/.dsh` and your npm setup |
 
 It is deliberately **not** a plugin manager, not a MCP client, not a second DSH UI.
-It starts the official web UI in its own app window; the browser stays a one-setting
-alternative.
+It starts the official web UI in its own app window — including a Cmd/Ctrl+F find bar —
+and the browser stays a one-setting alternative.
 
 > This is a community project. It is not affiliated with, endorsed by, or maintained
 > by DeepSeek.
