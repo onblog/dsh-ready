@@ -48,13 +48,13 @@ DeepSeek Harness（`dsh`）是一个命令行工具。对不常待在终端里�
 
 | 平台 | 安装包 | 说明 |
 | --- | --- | --- |
-| macOS Apple Silicon | `dsh-ready-1.2.6-arm64.dmg` | M1 / M2 / M3 / M4 |
-| macOS Intel | `dsh-ready-1.2.6-x64.dmg` | Intel 芯片的 Mac |
-| Windows x64 | `dsh-ready-1.2.6-x64.exe` | Windows 10 / 11 |
+| macOS Apple Silicon | `dsh-ready-1.2.7-arm64.dmg` | M1 / M2 / M3 / M4 |
+| macOS Intel | `dsh-ready-1.2.7-x64.dmg` | Intel 芯片的 Mac |
+| Windows x64 | `dsh-ready-1.2.7-x64.exe` | Windows 10 / 11 |
 
 到 **[dsh.wordtk.com](https://dsh.wordtk.com)** 下载：安装包放在 R2，官网永远提供最新版本。
 
-macOS 安装包带 **ad-hoc 签名**，Apple Silicon 可直接运行，但没有做苹果公证。下载后首次打开可能被系统拦一次：到「系统设置 → 隐私与安全性」点「仍要打开」（macOS 14 及更早可右键图标选「打开」）。若提示「已损坏」，执行 `xattr -cr "/Applications/DSH 就位.app"`。Windows 上点「更多信息 → 仍要运行」即可。
+macOS 安装包带**自签名**（不是 Apple Developer ID），Apple Silicon 可直接运行，但没有做苹果公证。下载后首次打开可能被系统拦一次：到「系统设置 → 隐私与安全性」点「仍要打开」（macOS 14 及更早可右键图标选「打开」）。若提示「已损坏」，执行 `xattr -cr "/Applications/DSH 就位.app"`。Windows 上点「更多信息 → 仍要运行」即可。
 
 ## 界面截图
 

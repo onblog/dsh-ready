@@ -53,19 +53,20 @@ and the browser stays a one-setting alternative.
 
 | Platform | Installer | Notes |
 | --- | --- | --- |
-| macOS Apple Silicon | `dsh-ready-1.2.6-arm64.dmg` | M1 / M2 / M3 / M4 |
-| macOS Intel | `dsh-ready-1.2.6-x64.dmg` | Intel-based Macs |
-| Windows x64 | `dsh-ready-1.2.6-x64.exe` | Windows 10 / 11 |
+| macOS Apple Silicon | `dsh-ready-1.2.7-arm64.dmg` | M1 / M2 / M3 / M4 |
+| macOS Intel | `dsh-ready-1.2.7-x64.dmg` | Intel-based Macs |
+| Windows x64 | `dsh-ready-1.2.7-x64.exe` | Windows 10 / 11 |
 
 Grab them from **[dsh.wordtk.com](https://dsh.wordtk.com)** — the installers live on R2
 and the site always serves the newest version.
 
-The macOS builds carry an **ad-hoc signature**, so Apple Silicon accepts them without
-a paid developer certificate. They are not notarized, so a freshly downloaded copy may
-still be blocked once: open **System Settings → Privacy & Security** and choose
-**Open Anyway** (macOS 14 and older: right-click the app → **Open**). If macOS claims the
-app is damaged, run `xattr -cr "/Applications/DSH 就位.app"`. On Windows, choose
-**More info → Run anyway** if SmartScreen appears.
+The macOS builds are signed with a **self-signed certificate** (not an Apple
+Developer ID), so Apple Silicon accepts them without a paid account. They are not
+notarized, so a freshly downloaded copy may still be blocked once: open
+**System Settings → Privacy & Security** and choose **Open Anyway** (macOS 14 and
+older: right-click the app → **Open**). If macOS claims the app is damaged, run
+`xattr -cr "/Applications/DSH 就位.app"`. On Windows, choose **More info → Run
+anyway** if SmartScreen appears.
 
 ## Screenshots
 
