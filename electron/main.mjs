@@ -685,10 +685,10 @@ function createWindow() {
   const theme = THEMES.includes(savedTheme) ? savedTheme : 'dark'
   nativeTheme.themeSource = theme
   mainWindow = new BrowserWindow({
-    width: 468,
-    height: 520,
-    minWidth: 440,
-    minHeight: 520,
+    width: 520,
+    height: 600,
+    minWidth: 480,
+    minHeight: 560,
     maximizable: false,
     fullscreenable: false,
     titleBarStyle: 'hiddenInset',
