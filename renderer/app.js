@@ -20,7 +20,9 @@ const els = {
   flowSummary: $('flowSummary'),
   flowNote: $('flowNote'),
   flowReport: $('flowReport'),
+  flowForceNote: $('flowForceNote'),
   flowPrimary: $('flowPrimary'),
+  flowForce: $('flowForce'),
   targetLabel: $('targetLabel'),
   versionPicker: $('versionPicker'),
   versionValue: $('versionValue'),
@@ -482,6 +484,8 @@ function openFlow(mode) {
   els.targetLabel.textContent = t(mode === 'install' ? 'flow.installVersion' : 'flow.targetVersion')
   els.flowPrimary.textContent = t(mode === 'install' ? 'flow.startInstall' : 'flow.startUpgrade')
   els.flowPrimary.disabled = mode === 'upgrade'
+  els.flowForce.hidden = true
+  els.flowForceNote.hidden = true
   els.flowNote.hidden = true
   if (mode === 'install') {
     els.flowSummary.textContent = t('flow.installSummary')
@@ -498,6 +502,8 @@ function closeFlow() {
   els.flow.hidden = true
   els.actions.hidden = false
   els.flowReport.textContent = ''
+  els.flowForce.hidden = true
+  els.flowForceNote.hidden = true
   closeDropdown()
 }
 
@@ -509,6 +515,8 @@ async function buildPlan() {
   els.flowSummary.classList.remove('err')
   els.flowSummary.textContent = t('flow.checking', { version: selectedVersion ?? '' })
   els.flowPrimary.disabled = true
+  els.flowForce.hidden = true
+  els.flowForceNote.hidden = true
 
   let result
   try {
@@ -581,6 +589,7 @@ function pluginReason(item) {
 
 function renderPlan(plan) {
   const upgrades = plan.plugins.filter((item) => item.action === 'upgrade')
+  const canForce = Boolean(plan.forceable) && Array.isArray(plan.incompatible) && plan.incompatible.length > 0 && !plan.ok
   els.flowSummary.classList.toggle('err', !plan.ok)
   if (plan.ok) {
     const pluginNote = upgrades.length
@@ -593,7 +602,7 @@ function renderPlan(plan) {
     })
   } else {
     const names = plan.blockers.map((item) => item.name).join(', ')
-    els.flowSummary.textContent = t('flow.checkFailed', { names })
+    els.flowSummary.textContent = t(canForce ? 'flow.checkFailedForce' : 'flow.checkFailed', { names })
   }
 
   const running = state?.status === 'running' || state?.status === 'external'
@@ -642,6 +651,10 @@ function renderPlan(plan) {
   }
 
   els.flowPrimary.disabled = !plan.ok
+  els.flowForce.textContent = t('flow.forceUpgrade')
+  els.flowForce.hidden = !canForce
+  els.flowForceNote.hidden = !canForce
+  els.flowForceNote.textContent = canForce ? t('flow.forceTip', { count: plan.incompatible.length }) : ''
 }
 
 /* ---------- Status rendering ---------- */
@@ -896,6 +909,26 @@ els.flowPrimary.addEventListener('click', () => {
     closeFlow()
     runAction(() => window.api.applyUpgrade(plan), t('notice.upgrading'), t('notice.upgraded'))
   }
+})
+
+els.flowForce.addEventListener('click', async () => {
+  if (!flowPlan?.forceable || !Array.isArray(flowPlan.incompatible) || !flowPlan.incompatible.length) return
+  const plan = flowPlan
+  const count = plan.incompatible.length
+  const confirmed = await showModal({
+    title: t('force.title'),
+    lines: [t('force.detail', { count })],
+    confirmText: t('force.confirm'),
+    cancelText: t('dialog.cancel'),
+    danger: true,
+  })
+  if (!confirmed) return
+  closeFlow()
+  runAction(
+    () => window.api.forceUpgrade(plan),
+    t('notice.forcingUpgrade'),
+    t('notice.forceUpgraded', { count }),
+  )
 })
 
 els.versionPicker.addEventListener('click', () => {

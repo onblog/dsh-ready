@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('api', {
   install: (version) => ipcRenderer.invoke('dsh:install', version),
   planUpgrade: (version) => ipcRenderer.invoke('upgrade:plan', version),
   applyUpgrade: (plan) => ipcRenderer.invoke('upgrade:apply', plan),
+  forceUpgrade: (plan) => ipcRenderer.invoke('upgrade:force', plan),
   uninstall: () => ipcRenderer.invoke('dsh:uninstall'),
   start: () => ipcRenderer.invoke('dsh:start'),
   stop: () => ipcRenderer.invoke('dsh:stop'),

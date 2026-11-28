@@ -56,6 +56,12 @@ at a time.
       fits, keep it; otherwise find the highest version of the plugin that fits the
       target. Missing versions, git/local-path installs, or a missing pnpm are
       blockers: report them, change nothing.
+    - **Forced upgrade**: when incompatible plugins exist (and pnpm is available) the
+      UI offers "Force upgrade": stop the instance → `dsh plugin --profile web remove
+      <incompatible plugins…>` → `npm install -g @deepseek-ai/dsh@<target>` → upgrade
+      the plugins that do fit. The uninstall list is written to the console log line
+      by line; an uninstall failure aborts the upgrade so DSH is never left on the
+      target version with an old, incompatible plugin still installed.
     - **Show commands**: on success, list the DSH upgrade command and every plugin
       upgrade command with versions.
     - **Execute**: stop the instance (app-started or external), run
@@ -109,10 +115,16 @@ progress streams through `dsh:event`.
 `{ ok, message, plan }`, where `plan` carries `ok`, `currentDsh`, `targetDsh`,
 `dshSource`, `profile` (always `web`), `plugins[]` (`name`, `current`, `next`,
 `action` = upgrade/keep/blocked, `verified`, `note`, `reason`), `blockers[]`,
-`commands[]`, `dshArgs[]` and `pluginArgs[]`.
+`incompatible[]` (the blocked plugins a forced upgrade would remove), `forceable`
+(true when incompatible plugins exist and pnpm is available), `commands[]`,
+`dshArgs[]` and `pluginArgs[]`.
 
 `upgrade:apply` takes the plan object and executes stop → DSH upgrade → plugin
 upgrade in that order.
+
+`upgrade:force` takes a plan whose `forceable` is true and executes stop → remove
+`incompatible` plugins (the uninstall list is logged) → DSH upgrade → upgrade the
+compatible plugins.
 
 ### `dsh:uninstall`, `dsh:start`, `dsh:stop`, `dsh:takeover`, `dsh:open`
 
@@ -444,8 +456,10 @@ macOS Apple Silicon (arm64), macOS Intel (x64) and Windows (x64).
   `dsh.log.1` at 5 MB.
 - An in-memory ring buffer keeps the last 2000 lines; the UI renders at most 600.
 - Install, upgrade, uninstall and Node installation share the same log channel.
-- Upgrade checks log the number of plugins inspected and the verdict; execution logs
-  every command, exit code and plugin result.
+- Upgrade checks log the number of plugins inspected and the verdict, plus the
+  removable count when a forced upgrade is possible; execution logs every command,
+  exit code and plugin result; a forced upgrade prints each plugin's name, version
+  and incompatibility reason before removing it.
 - Start, ready, stop, crash and start-timeout each write an explicit line so a
   non-developer can tell where it failed.
 - External detection polls every 4 seconds and only pushes real changes; a failed

@@ -788,23 +788,42 @@ ipcMain.handle('upgrade:plan', async (_event, version) => {
   }
 })
 
+async function runUpgrade(plan) {
+  await withTask('upgrading', async () => {
+    if (currentState().running) await stop()
+    if (external) {
+      push('先停止其它方式启动的 DSH')
+      await killExternalDsh(external.pid)
+      await waitPortFree(external.port)
+      external = null
+    }
+    await applyUpgradePlan(plan)
+    latestCache = { value: null, at: 0 }
+    await refreshLatest(true).catch(() => null)
+  })
+}
+
 ipcMain.handle('upgrade:apply', async (_event, plan) => {
   if (!plan?.targetDsh || !Array.isArray(plan.dshArgs) || !plan.dshArgs.length) {
     return { ok: false, message: mainT(resolveLang(), 'msg.noPlan') }
   }
   try {
-    await withTask('upgrading', async () => {
-      if (currentState().running) await stop()
-      if (external) {
-        push('先停止其它方式启动的 DSH')
-        await killExternalDsh(external.pid)
-        await waitPortFree(external.port)
-        external = null
-      }
-      await applyUpgradePlan(plan)
-      latestCache = { value: null, at: 0 }
-      await refreshLatest(true).catch(() => null)
-    })
+    await runUpgrade(plan)
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, message: error.message }
+  }
+})
+
+ipcMain.handle('upgrade:force', async (_event, plan) => {
+  if (!plan?.targetDsh || !Array.isArray(plan.dshArgs) || !plan.dshArgs.length) {
+    return { ok: false, message: mainT(resolveLang(), 'msg.noPlan') }
+  }
+  if (!plan.forceable || !Array.isArray(plan.incompatible) || !plan.incompatible.length) {
+    return { ok: false, message: mainT(resolveLang(), 'msg.noForce') }
+  }
+  try {
+    await runUpgrade({ ...plan, force: true })
     return { ok: true }
   } catch (error) {
     return { ok: false, message: error.message }

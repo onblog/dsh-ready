@@ -20,6 +20,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 10. 停止 → 先 SIGTERM 进程组，超时 SIGKILL；应用退出时自动停止。
 11. 升级 → 版本下拉只在「安装流程」和「升级流程」里出现。升级分两步：先出升级计划，再执行。
     - 升级计划：停实例前完成检查。逐个核对已安装第三方插件的 DSH 兼容声明：`peerDependencies` 里 `@deepseek-ai/dsh`、`@deepseek-ai/dsh-*` 的范围，以及 `engines.dsh`（这些内部包与 dsh 主包同版本列车发版）。插件标了 `optional` 的 peer 视为建议范围，只有建议范围不匹配时保持现状并标注；必需范围不匹配才升级。当前版本已适配就保持不动；不适配就到 registry 找适配目标版本的最高版本；找不到、或插件是 git/本地路径安装、或缺少 pnpm，都算阻塞项，只提示不执行。
+    - 强制升级：存在不兼容插件时（且 pnpm 可用）提供「强制升级」。执行顺序为停止实例 → `dsh plugin --profile web remove <不兼容插件...>` 卸载这些插件 → `npm install -g @deepseek-ai/dsh@<目标版本>` → 升级可适配的插件。卸载清单逐条写入控制台日志；卸载失败即中止，不会留下「DSH 升级了、旧插件还在」的半成品状态。
     - 展示命令：检查通过后列出带版本号的 dsh 升级命令和第三方插件升级命令。
     - 执行：先停止实例（控制台启动的或检测到的外部实例），再 `npm install -g @deepseek-ai/dsh@<目标版本>` 装到 npm 默认全局前缀（就地升级），最后 `dsh plugin --profile web add <包名>@<版本> ...` 升级插件；任一步失败都写明确日志。
 
@@ -86,6 +87,8 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 | plan.profile | 插件所在 profile | 固定 web |
 | plan.plugins | 逐个插件的检查结果 | 数组，见下表 |
 | plan.blockers | 阻塞项 | 数组 `{ name, reason }`，可为空 |
+| plan.incompatible | 需要卸载才能升级的不兼容插件 | 数组，元素同 `plan.plugins`，可为空 |
+| plan.forceable | 是否可强制升级 | true / false；有不兼容插件且 pnpm 可用时为 true |
 | plan.commands | 将要执行的命令 | 字符串数组，dsh 命令在前 |
 | plan.dshArgs | dsh 升级命令参数 | 字符串数组 |
 | plan.pluginArgs | 插件升级命令参数，无需升级时为 null | 字符串数组或 null |
@@ -109,6 +112,14 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 | plan | `upgrade:plan` 返回的计划 | 对象，需包含 targetDsh 与 dshArgs |
 
 响应 `{ ok, message }`。执行顺序：停止实例 → 升级 dsh → 升级插件。
+
+### `upgrade:force`
+
+| 字段 | 含义 | 取值范围 |
+| --- | --- | --- |
+| plan | `upgrade:plan` 返回的计划，且 `forceable` 为 true | 对象，需包含 targetDsh、dshArgs、incompatible |
+
+响应 `{ ok, message }`。执行顺序：停止实例 → 卸载 `plan.incompatible` 里的插件（卸载清单写入日志）→ 升级 dsh → 升级可适配的插件。
 
 ### `dsh:uninstall`
 
@@ -434,7 +445,7 @@ DSH（DeepSeek Harness）目前只能通过命令行 `dsh web` 启动，非开�
 - dsh 输出按行写入 `<userData>/logs/dsh.log`，单文件超过 5MB 轮转为 `dsh.log.1`。
 - 内存环形缓冲保留最近 2000 行，界面最多渲染 600 行。
 - 安装、升级、卸载、Node 安装复用同一日志通道。
-- 升级检查输出参与检查的插件数量与结论；升级执行输出每条实际命令、命令退出码与插件升级结果。
+- 升级检查输出参与检查的插件数量与结论，可强制升级时额外输出待卸载数量；升级执行输出每条实际命令、命令退出码与插件升级结果；强制升级逐条打印卸载清单（包名、版本与不兼容原因）。
 - 启动、就绪、停止、崩溃、启动超时都写显式日志，便于非开发者自助判断。
 - 外部实例检测每 4 秒轮询一次，状态变化才推送界面；检测失败保留上一次结果。
 - 窗口关闭时写一条「窗口已隐藏」日志，告诉用户从哪里恢复窗口、从哪里真正退出。

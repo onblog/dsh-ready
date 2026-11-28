@@ -39,7 +39,7 @@ cleaning up stray processes.
 | Stop | Stops the process group it started, or the external instance you asked it to take over |
 | Status | Running / stopped / external instance / installing / upgrading, refreshed live |
 | Logs | Live output panel plus an on-disk log, so failures are readable |
-| Upgrade | Checks every third-party plugin against the target version first, then upgrades DSH and the plugins |
+| Upgrade | Checks every third-party plugin against the target version first; an incompatible plugin can be dropped by a forced upgrade (the uninstall list is logged), then DSH and the compatible plugins are upgraded |
 | Uninstall | Stops, removes plugins, clears the profile, removes DSH — keeps `~/.dsh` and your npm setup |
 
 It is deliberately **not** a plugin manager, not a MCP client, not a second DSH UI.
@@ -90,7 +90,10 @@ All screenshots are captured from the real app running inside a sandbox, by
   DSH on other ports is never touched.
 - **Upgrade plan before upgrade.** Plugin `peerDependencies` on `@deepseek-ai/dsh*`
   and `engines.dsh` are checked against the target version. A blocker is reported
-  and nothing is touched; only a passing plan turns into executable commands.
+  and nothing is touched; only a passing plan turns into executable commands. When
+  a plugin has no compatible release, the UI offers a forced upgrade that removes
+  the incompatible plugins first (each one logged with its version and reason) and
+  then upgrades DSH plus the plugins that do fit.
 - **Ports stay yours.** The default is 3080, edited in the settings sheet (read-only in the
   main window); a busy port is reported instead of silently shifted, so the address you see is real.
 - **Settings in one place.** The header is four icons — language (文A), theme, settings, quit.

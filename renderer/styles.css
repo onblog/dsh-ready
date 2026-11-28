@@ -692,6 +692,14 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
   line-height: 1.5;
 }
 
+.flow-force-note {
+  margin-top: 8px;
+  flex: none;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+
 .cmd-label {
   margin-top: 10px;
   font-size: 10.5px;
@@ -724,6 +732,16 @@ body:is([data-status='starting'], [data-status='installing'], [data-status='upgr
   display: flex;
   gap: 8px;
   flex: none;
+}
+
+.flow-actions .btn.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.flow-actions .btn.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: rgba(163, 72, 58, 0.08);
 }
 
 .target-head {

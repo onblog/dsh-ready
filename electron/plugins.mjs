@@ -225,6 +225,36 @@ function buildCommands({ targetDsh, dshSource, profile, upgrades, registry }) {
 }
 
 /**
+ * Uninstall the named third-party plugins of the profile.
+ * Used by a forced upgrade to drop plugins that declare no version compatible with the target DSH;
+ * a failure aborts the upgrade so the profile never keeps a plugin the new DSH cannot load.
+ */
+export async function uninstallPlugins(names, profile = 'web') {
+  const list = [...new Set(names.filter(Boolean))]
+  if (!list.length) return []
+
+  const target = resolveDsh()
+  if (!target || !findPnpm()) {
+    throw new Error('未找到可用的 dsh 或 pnpm，无法卸载不兼容插件')
+  }
+
+  const runtime = await ensureRuntime()
+  const launcher = dshLauncher(target, runtime)
+  push(`执行：dsh plugin --profile ${profile} remove ${list.join(' ')}`)
+  const result = await spawnAsync(
+    launcher.cmd,
+    [...launcher.prefix, 'plugin', '--profile', profile, 'remove', ...list],
+    { cwd: profileDir(profile), env: runtimeEnv(runtime), timeout: 600000 },
+  )
+  if (result.code !== 0) {
+    push(`卸载不兼容插件失败：退出码 ${result.code}`)
+    throw new Error(`卸载不兼容插件失败（退出码 ${result.code}），请查看日志后重试`)
+  }
+  push(`已卸载不兼容插件：${list.join('、')}`)
+  return list
+}
+
+/**
  * Uninstall the third-party plugins of the profile.
  * Prefer dsh plugin remove (it keeps the bundles layer list in sync as well); when pnpm/dsh is missing, hand off to
  * the profile config cleanup below as a fallback, so no half-finished state is left behind.
@@ -281,6 +311,7 @@ export async function buildUpgradePlan({ registry, targetDsh, currentDsh, dshSou
 
   const results = await runPool(plugins, (plugin) => checkPlugin(plugin, targetDsh, registry))
   const blockers = results.filter((item) => item.action === 'blocked')
+  const incompatible = blockers.slice()
   const upgrades = results.filter((item) => item.action === 'upgrade')
 
   const { dshArgs, pluginArgs, commands } = buildCommands({
@@ -291,7 +322,8 @@ export async function buildUpgradePlan({ registry, targetDsh, currentDsh, dshSou
     registry,
   })
 
-  if (upgrades.length && !findPnpm()) {
+  const pnpm = findPnpm()
+  if (upgrades.length && !pnpm) {
     blockers.push({
       name: 'pnpm',
       current: null,
@@ -303,11 +335,15 @@ export async function buildUpgradePlan({ registry, targetDsh, currentDsh, dshSou
   }
 
   const ok = blockers.length === 0
+  // A forced upgrade can drop incompatible plugins, but it still needs pnpm to uninstall them and to add the
+  // plugins that do have a compatible version; a missing pnpm stays a hard blocker.
+  const forceable = incompatible.length > 0 && Boolean(pnpm)
   push(
     ok
       ? `升级检查通过：${upgrades.length ? `${upgrades.length} 个插件需要同步升级` : '插件无需变更'}`
       : `升级检查未通过：${blockers.map((item) => item.name).join('、')}`,
   )
+  if (forceable) push(`可强制升级：先卸载 ${incompatible.length} 个不兼容插件，再升级 DSH`)
 
   return {
     ok,
@@ -317,6 +353,8 @@ export async function buildUpgradePlan({ registry, targetDsh, currentDsh, dshSou
     profile,
     plugins: results,
     blockers,
+    incompatible,
+    forceable,
     commands,
     dshArgs,
     pluginArgs,
@@ -334,6 +372,18 @@ export async function applyUpgradePlan(plan) {
     throw new Error('未检测到 pnpm，第三方插件无法升级，请先安装 pnpm 后重试')
   }
 
+  const incompatible = plan.force ? (plan.incompatible ?? []) : []
+  if (plan.force) {
+    if (!incompatible.length) throw new Error('缺少不兼容插件清单，请重新检查升级计划')
+    push(`强制升级：目标 DSH ${plan.targetDsh}，先卸载 ${incompatible.length} 个不兼容插件`)
+    push(`卸载清单：${incompatible.map((item) => `${item.name}@${item.current}`).join('、')}`)
+    for (const item of incompatible) {
+      const reason = item.note || item.reason || '当前版本与目标 DSH 不兼容'
+      push(`  - ${item.name}@${item.current}：${reason}`)
+    }
+    await uninstallPlugins(incompatible.map((item) => item.name), plan.profile)
+  }
+
   const runtime = await ensureRuntime()
   const launcher = npmLauncher(runtime)
   const env = { ...runtimeEnv(runtime), npm_config_update_notifier: 'false' }
@@ -348,7 +398,8 @@ export async function applyUpgradePlan(plan) {
   clearSystemDshCache()
   push(`DSH 已升级到 ${plan.targetDsh}`)
 
-  if (!plan.pluginArgs) return { upgradedPlugins: [] }
+  const uninstalledPlugins = incompatible.map((item) => item.name)
+  if (!plan.pluginArgs) return { upgradedPlugins: [], uninstalledPlugins }
 
   const target = resolveDsh()
   if (!target) throw new Error('升级后未找到 dsh 可执行文件，请查看日志')
@@ -363,5 +414,5 @@ export async function applyUpgradePlan(plan) {
     throw new Error(`升级第三方插件失败（退出码 ${pluginResult.code}），DSH 已升级完成，请查看日志后重试插件升级`)
   }
   push(`已升级插件：${upgrades.map((item) => item.name).join('、')}`)
-  return { upgradedPlugins: upgrades.map((item) => item.name) }
+  return { upgradedPlugins: upgrades.map((item) => item.name), uninstalledPlugins }
 }
